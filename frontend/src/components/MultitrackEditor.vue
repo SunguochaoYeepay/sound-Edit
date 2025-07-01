@@ -504,6 +504,7 @@ let playInterval = null
 let previewAudioElement = null  // 专门用于预览播放
 let audioFileElement = null     // 专门用于音频文件播放
 let currentPreviewFile = null
+let currentAudioId = 0          // 当前音频元素的唯一标识符
 
 // 计算当前选中的音频片段
 const selectedClip = computed(() => {
@@ -859,24 +860,29 @@ async function togglePlay() {
   if (isPlaying.value) {
     pausePlayback()
   } else {
-    await startPlayback()
+    // 如果有可用的音频元素且未结束，恢复播放；否则重新开始
+    if (previewAudioElement && !previewAudioElement.ended && previewAudioElement.src) {
+      resumePlayback()
+    } else {
+      await startPlayback()
+    }
   }
 }
 
 async function startPlayback() {
   try {
+    // 如果已在加载中，避免重复请求
+    if (isLoadingPreview.value) {
+      console.log('预览音频正在加载中，跳过重复请求')
+      return
+    }
+    
     isLoadingPreview.value = true
     
     // 检查是否有项目
     if (!currentProject.value.project.id) {
       message.warning('请先创建或加载项目')
       isLoadingPreview.value = false
-      return
-    }
-    
-    // 如果已在加载中或正在播放，避免重复请求
-    if (isLoadingPreview.value) {
-      console.log('预览音频正在加载中，跳过重复请求')
       return
     }
     
@@ -905,36 +911,65 @@ async function startPlayback() {
       return
     }
     
-    // 停止当前播放
+    console.log('预览音频生成成功:', previewResult)
+    
+    // 停止当前播放并清理旧的音频元素
     if (previewAudioElement) {
       previewAudioElement.pause()
       previewAudioElement.src = ''
-      previewAudioElement.load()
       previewAudioElement = null
     }
     
     // 创建新的音频元素
-    previewAudioElement = new Audio()
+    currentAudioId++  // 增加音频ID
+    const audioId = currentAudioId
     currentPreviewFile = previewResult.data.preview_file
     const audioUrl = getPreviewAudioUrl(currentPreviewFile)
-    previewAudioElement.src = audioUrl
-    previewAudioElement.crossOrigin = 'anonymous'
     
     console.log('创建预览音频元素:', {
+      audioId: audioId,
       previewFile: currentPreviewFile,
       audioUrl: audioUrl
     })
     
+    previewAudioElement = new Audio()
+    previewAudioElement.audioId = audioId  // 为音频元素分配ID
+    previewAudioElement.crossOrigin = 'anonymous'
+    previewAudioElement.preload = 'auto'
+    
     // 设置音频事件监听
-    previewAudioElement.addEventListener('loadstart', () => {
+    previewAudioElement.addEventListener('loadstart', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
       console.log('预览音频开始加载')
     })
     
-    previewAudioElement.addEventListener('loadeddata', () => {
+    previewAudioElement.addEventListener('loadeddata', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
       console.log('预览音频数据加载完成')
     })
     
-    previewAudioElement.addEventListener('canplay', () => {
+    previewAudioElement.addEventListener('loadedmetadata', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      console.log('预览音频元数据加载完成')
+    })
+    
+    previewAudioElement.addEventListener('suspend', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      console.log('预览音频加载暂停')
+    })
+    
+    previewAudioElement.addEventListener('stalled', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      console.log('预览音频加载停滞')
+      // 如果加载停滞，重置状态
+      if (isLoadingPreview.value) {
+        isLoadingPreview.value = false
+        message.warning('音频加载停滞，请重试')
+      }
+    })
+    
+    previewAudioElement.addEventListener('canplay', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
       if (!previewAudioElement) return
       console.log('预览音频可以播放')
       
@@ -973,13 +1008,15 @@ async function startPlayback() {
       }
     })
     
-    previewAudioElement.addEventListener('ended', () => {
+    previewAudioElement.addEventListener('ended', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
       if (!previewAudioElement) return
       console.log('预览音频播放结束')
       stopPlayback()
     })
     
     previewAudioElement.addEventListener('error', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
       if (!previewAudioElement) return
       const error = e.target.error
       console.error('预览音频播放错误:', e, error)
@@ -1016,8 +1053,18 @@ async function startPlayback() {
       }
     })
     
-    // 开始加载音频
+    // 设置音频源并开始加载
+    previewAudioElement.src = audioUrl
     previewAudioElement.load()
+    
+    // 设置超时保护，如果10秒内没有触发canplay事件，则重置状态
+    setTimeout(() => {
+      if (isLoadingPreview.value) {
+        console.warn('音频加载超时，重置加载状态')
+        isLoadingPreview.value = false
+        message.warning('音频加载超时，请重试')
+      }
+    }, 10000)
     
   } catch (error) {
     console.error('启动播放失败:', error)
@@ -1034,6 +1081,39 @@ function pausePlayback() {
   if (playInterval) {
     clearInterval(playInterval)
     playInterval = null
+  }
+}
+
+function resumePlayback() {
+  if (!previewAudioElement) return
+  
+  console.log('恢复播放预览音频')
+  isPlaying.value = true
+  
+  const playPromise = previewAudioElement.play()
+  
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
+      console.log('预览音频恢复播放成功')
+      // 开始更新播放时间
+      playInterval = setInterval(() => {
+        if (previewAudioElement && !previewAudioElement.paused) {
+          currentTime.value = Math.min(
+            currentTime.value + 0.1,
+            currentProject.value.project.totalDuration || 60
+          )
+        }
+      }, 100)
+    }).catch(error => {
+      console.error('预览音频恢复播放失败:', error)
+      isPlaying.value = false
+      
+      if (error.name === 'NotAllowedError') {
+        message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
+      } else {
+        message.error('音频播放失败: ' + error.message)
+      }
+    })
   }
 }
 
