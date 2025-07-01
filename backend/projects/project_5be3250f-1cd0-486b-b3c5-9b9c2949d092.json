@@ -1,0 +1,67 @@
+{
+  "project": {
+    "id": "project_5be3250f-1cd0-486b-b3c5-9b9c2949d092",
+    "title": "test",
+    "description": "test",
+    "author": "AI-Sound",
+    "totalDuration": 25.87925,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitDepth": 16,
+    "exportFormat": "wav",
+    "createdAt": "2025-07-01T18:23:50.958018",
+    "version": "1.0"
+  },
+  "tracks": [
+    {
+      "id": "track_dialogue",
+      "name": "角色对话",
+      "type": "dialogue",
+      "volume": 1.0,
+      "muted": false,
+      "solo": false,
+      "color": "#3498db",
+      "order": 1,
+      "clips": []
+    },
+    {
+      "id": "track_environment",
+      "name": "环境音效",
+      "type": "environment",
+      "volume": 0.8,
+      "muted": false,
+      "solo": false,
+      "color": "#27ae60",
+      "order": 2,
+      "clips": []
+    },
+    {
+      "id": "track_background",
+      "name": "背景音乐",
+      "type": "background",
+      "volume": 0.5,
+      "muted": false,
+      "solo": false,
+      "color": "#e74c3c",
+      "order": 3,
+      "clips": [
+        {
+          "id": "clip_1751365464282_zkby2l8m9",
+          "name": "test_0605-0018_final",
+          "filePath": "uploads/audio/9a027b22-e5d5-4ed1-8728-10671e4341e9.wav",
+          "startTime": 0.0,
+          "duration": 25.87925,
+          "volume": 1.0,
+          "fadeIn": 0.1,
+          "fadeOut": 0.1,
+          "playbackRate": 1.0,
+          "loop": false,
+          "character": null,
+          "text": null,
+          "metadata": {}
+        }
+      ]
+    }
+  ],
+  "markers": []
+}

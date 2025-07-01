@@ -1,0 +1,9 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+celery==5.3.6
+redis==5.0.4
+ffmpeg-python==0.2.0
+python-dotenv==1.0.1
+# 预留ORM
+SQLAlchemy==2.0.30

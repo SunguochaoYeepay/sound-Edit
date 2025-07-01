@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.env
+.env.*
+
+# Node
+node_modules/
+dist/
+
+# VSCode
+.vscode/
+
+# Mac
+.DS_Store
+
+# Docker
+*.log
+
+# Test
+coverage/
+
+# Others
+.idea/
+*.swp

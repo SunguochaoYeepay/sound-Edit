@@ -1,0 +1,83 @@
+{
+  "project": {
+    "id": "project_2dd54e5e-6182-41b2-97e3-d1ae257a8efe",
+    "title": "22",
+    "description": "222",
+    "author": "AI-Sound",
+    "totalDuration": 25.87925,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitDepth": 16,
+    "exportFormat": "wav",
+    "createdAt": "2025-07-01T18:46:33.160524",
+    "version": "1.0"
+  },
+  "tracks": [
+    {
+      "id": "track_dialogue",
+      "name": "角色对话",
+      "type": "dialogue",
+      "volume": 1.0,
+      "muted": false,
+      "solo": false,
+      "color": "#3498db",
+      "order": 1,
+      "clips": []
+    },
+    {
+      "id": "track_environment",
+      "name": "环境音效",
+      "type": "environment",
+      "volume": 0.8,
+      "muted": false,
+      "solo": false,
+      "color": "#27ae60",
+      "order": 2,
+      "clips": [
+        {
+          "id": "clip_1751366831850_nni8wlq6o",
+          "name": "2.台湾嗲女2Haa",
+          "filePath": "uploads/audio/9d5aec2c-fa68-413e-a275-0384e4961fad.wav",
+          "startTime": 0.0,
+          "duration": 4.87619,
+          "volume": 1.0,
+          "fadeIn": 0.1,
+          "fadeOut": 0.1,
+          "playbackRate": 1.0,
+          "loop": false,
+          "character": null,
+          "text": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "track_background",
+      "name": "背景音乐",
+      "type": "background",
+      "volume": 0.5,
+      "muted": false,
+      "solo": false,
+      "color": "#e74c3c",
+      "order": 3,
+      "clips": [
+        {
+          "id": "clip_1751366811243_6ida774d4",
+          "name": "test_0605-0018_final",
+          "filePath": "uploads/audio/4f848f14-c343-42d5-96a1-d0422403d4c7.wav",
+          "startTime": 0.0,
+          "duration": 25.87925,
+          "volume": 1.0,
+          "fadeIn": 0.1,
+          "fadeOut": 0.1,
+          "playbackRate": 1.0,
+          "loop": false,
+          "character": null,
+          "text": null,
+          "metadata": {}
+        }
+      ]
+    }
+  ],
+  "markers": []
+}
