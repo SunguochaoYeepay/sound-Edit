@@ -130,19 +130,6 @@
         <div class="preview-panel">
           <div class="panel-header">
             <h4>合成预览</h4>
-            <a-space size="small">
-              <a-button size="small" type="primary" @click="togglePlay" :loading="isLoadingPreview" :disabled="!currentProject.project.id">
-                <template #icon>
-                  <PlayCircleOutlined v-if="!isPlaying && !isLoadingPreview" />
-                  <PauseCircleOutlined v-else-if="isPlaying" />
-                </template>
-                {{ isLoadingPreview ? '准备中' : (isPlaying ? '播放' : '预览') }}
-              </a-button>
-              <a-button size="small" @click="stopPlayback">
-                <template #icon><StopOutlined /></template>
-                停止
-              </a-button>
-            </a-space>
           </div>
           <div class="panel-content">
             <div class="preview-area">
@@ -164,18 +151,31 @@
                   :max="currentProject.project.totalDuration || 1" 
                   :step="0.1"
                   :disabled="!currentProject.project.id"
-                  style="flex: 1"
+                  style="flex: 1; margin-right: 12px;"
                 />
+                <a-space size="small">
+                  <a-button size="small" type="primary" @click="togglePlay" :loading="isLoadingPreview" :disabled="!currentProject.project.id">
+                    <template #icon>
+                      <PlayCircleOutlined v-if="!isPlaying && !isLoadingPreview" />
+                      <PauseCircleOutlined v-else-if="isPlaying" />
+                    </template>
+                    {{ isLoadingPreview ? '准备中' : (isPlaying ? '播放' : '预览') }}
+                  </a-button>
+                  <a-button size="small" @click="stopPlayback">
+                    <template #icon><StopOutlined /></template>
+                    停止
+                  </a-button>
+                </a-space>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 右侧：项目信息 -->
+        <!-- 右侧：项目信息/音频片段信息 -->
         <div class="project-panel">
           <div class="panel-header">
-            <h4>项目信息</h4>
-            <a-space size="small">
+            <h4>{{ selectedClip ? '音频片段信息' : '项目信息' }}</h4>
+            <a-space size="small" v-if="!selectedClip">
               <a-button size="small" @click="showCreateProject = true" type="primary">
                 <template #icon><PlusOutlined /></template>
                 新建
@@ -191,7 +191,70 @@
             </a-space>
           </div>
           <div class="panel-content">
-            <div v-if="currentProject.project.id" class="project-details">
+            <!-- 音频片段信息 -->
+            <div v-if="selectedClip" class="clip-details">
+              <div class="project-field">
+                <label>片段名称：</label>
+                <EditableText 
+                  :value="selectedClip.name" 
+                  @change="(newName) => updateSelectedClip({ name: newName })"
+                  placeholder="音频片段名称"
+                />
+              </div>
+              <div class="project-field">
+                <label>音轨类型：</label>
+                <span>{{ getTrackTypeLabel(selectedClip.trackType) }}</span>
+              </div>
+              <div class="project-field">
+                <label>开始时间：</label>
+                <span>{{ formatTime(selectedClip.startTime) }}</span>
+              </div>
+              <div class="project-field">
+                <label>持续时间：</label>
+                <span>{{ formatTime(selectedClip.duration) }}</span>
+              </div>
+              <div class="project-field">
+                <label>音量：</label>
+                <a-slider 
+                  :value="selectedClip.volume * 100" 
+                  :min="0" 
+                  :max="200" 
+                  :step="1"
+                  @change="(value) => updateSelectedClip({ volume: value / 100 })"
+                />
+                <span>{{ Math.round(selectedClip.volume * 100) }}%</span>
+              </div>
+              <div class="project-field">
+                <label>淡入时间：</label>
+                <a-input-number 
+                  :value="selectedClip.fadeIn || 0" 
+                  :min="0" 
+                  :max="selectedClip.duration / 2"
+                  :step="0.1"
+                  @change="(value) => updateSelectedClip({ fadeIn: value })"
+                  addon-after="秒"
+                />
+              </div>
+              <div class="project-field">
+                <label>淡出时间：</label>
+                <a-input-number 
+                  :value="selectedClip.fadeOut || 0" 
+                  :min="0" 
+                  :max="selectedClip.duration / 2"
+                  :step="0.1"
+                  @change="(value) => updateSelectedClip({ fadeOut: value })"
+                  addon-after="秒"
+                />
+              </div>
+              <div class="project-actions">
+                <a-button block @click="clearSelectedClip">
+                  取消选择
+                </a-button>
+              </div>
+            </div>
+            
+            <!-- 项目信息 -->
+            <div v-else-if="currentProject.project.id" class="project-details">
               <div class="project-field">
                 <label>项目名称：</label>
                 <EditableText 
@@ -231,6 +294,8 @@
                 </a-button>
               </div>
             </div>
+            
+            <!-- 空状态 -->
             <div v-else class="project-empty">
               <div class="empty-icon">📁</div>
               <div class="empty-text">暂无项目</div>
@@ -404,6 +469,7 @@ import {
   downloadExportedAudio,
   generatePreviewAudio,
   getPreviewAudioUrl,
+  deletePreviewFile,
   createEmptyProject,
   calculateProjectDuration,
   formatTime,
@@ -438,6 +504,18 @@ let playInterval = null
 let previewAudioElement = null  // 专门用于预览播放
 let audioFileElement = null     // 专门用于音频文件播放
 let currentPreviewFile = null
+
+// 计算当前选中的音频片段
+const selectedClip = computed(() => {
+  for (const track of currentProject.value.tracks) {
+    for (const clip of track.clips) {
+      if (clip.selected) {
+        return { ...clip, trackType: track.type }
+      }
+    }
+  }
+  return null
+})
 
 // 视图控制
 const viewDuration = ref(60) // 显示的时间范围（秒）
@@ -915,7 +993,7 @@ function pausePlayback() {
   }
 }
 
-function stopPlayback() {
+async function stopPlayback() {
   isPlaying.value = false
   currentTime.value = 0
   
@@ -930,6 +1008,20 @@ function stopPlayback() {
   if (playInterval) {
     clearInterval(playInterval)
     playInterval = null
+  }
+  
+  // 删除临时预览文件
+  if (currentPreviewFile) {
+    try {
+      const result = await deletePreviewFile(currentPreviewFile)
+      if (result.success) {
+        console.log('预览文件已删除:', currentPreviewFile)
+      } else {
+        console.warn('删除预览文件失败:', result.error)
+      }
+    } catch (error) {
+      console.error('删除预览文件出错:', error)
+    }
   }
   
   currentPreviewFile = null
@@ -993,6 +1085,13 @@ function handleKeyDown(event) {
   }
   
   switch (event.key) {
+    case ' ':
+      // 空格键：播放/暂停
+      if (currentProject.value.project.id) {
+        togglePlay()
+        event.preventDefault()
+      }
+      break
     case 'Delete':
     case 'Backspace':
       handleDeleteSelectedClips()
@@ -1071,6 +1170,30 @@ function handleExclusiveSelect(trackId, clipId) {
       clip.selected = true
     }
   }
+}
+
+// 更新选中的音频片段
+function updateSelectedClip(updates) {
+  if (!selectedClip.value) return
+  
+  // 找到对应的音轨和片段并更新
+  for (const track of currentProject.value.tracks) {
+    for (const clip of track.clips) {
+      if (clip.selected) {
+        Object.assign(clip, updates)
+        break
+      }
+    }
+  }
+}
+
+// 清除选中状态
+function clearSelectedClip() {
+  currentProject.value.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      clip.selected = false
+    })
+  })
 }
 
 // 生命周期

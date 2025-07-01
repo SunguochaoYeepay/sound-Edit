@@ -84,6 +84,11 @@ export function getPreviewAudioUrl(fileId) {
   return url
 }
 
+export async function deletePreviewFile(filename) {
+  const res = await axios.delete(`/api/v1/audio-editor/preview/${filename}`)
+  return res.data
+}
+
 // 工具函数：创建空项目模板
 export function createEmptyProject(title = '新建项目') {
   return {
