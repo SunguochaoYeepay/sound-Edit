@@ -1354,33 +1354,35 @@ function handleDragEnd(event) {
   display: flex;
   flex-direction: column;
   height: 100%;
+  background: #1a1a1a;
 }
 
 /* 上半部分：三栏布局 */
 .top-section {
-  height: 50%;
+  height: calc(50% - 8px);
   display: flex;
-  border-bottom: 1px solid #333;
+  gap: 16px;
+  padding: 16px;
 }
 
 .resource-panel, .preview-panel, .project-panel {
-  border-right: 1px solid #333;
   background: #2a2a2a;
   display: flex;
   flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid #333;
 }
 
 .resource-panel {
-  width: 30%;
+  flex: 3;
 }
 
 .preview-panel {
-  width: 40%;
+  flex: 4;
 }
 
 .project-panel {
-  width: 30%;
-  border-right: none;
+  flex: 3;
 }
 
 /* 面板头部 */
@@ -1391,6 +1393,8 @@ function handleDragEnd(event) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
 }
 
 .panel-header h4 {
@@ -1749,10 +1753,11 @@ function handleDragEnd(event) {
 
 /* 下半部分：音轨编辑器 */
 .bottom-section {
-  height: 50%;
-  background: #1e1e1e;
+  height: calc(50% - 8px);
   display: flex;
   flex-direction: column;
+  padding: 16px;
+  padding-top: 0;
 }
 
 .timeline-container {
@@ -1760,6 +1765,9 @@ function handleDragEnd(event) {
   display: flex;
   flex-direction: column;
   background: #1e1e1e;
+  border-radius: 8px;
+  border: 1px solid #333;
+  overflow: hidden;
 }
 
 .timeline-ruler {
