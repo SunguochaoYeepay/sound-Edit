@@ -59,6 +59,18 @@
 - `frontend/src/components/tracks/TrackEditor.vue` 
 - `frontend/src/components/tracks/AudioClipItem.vue`
 
+### 音频片段显示宽度修复
+- **问题解决**：修复拖拽音频片段显示固定宽度的问题
+- **后端修复**：
+  - 修改`upload_service.list_uploaded_files()`方法，返回完整音频元数据
+  - 添加duration、sample_rate、channels等关键信息
+  - 使用FFmpeg获取准确的音频时长信息
+- **显示效果**：
+  - 音频片段现在根据实际时长正确显示宽度
+  - 25秒音频显示为25个时间单位宽度
+  - 5秒音频显示为5个时间单位宽度
+  - 时间轴标尺对应准确
+
 ---
 
 ## 项目简介

@@ -57,7 +57,7 @@ async def list_audio_files():
     获取已上传的音频文件列表
     """
     try:
-        files = upload_service.list_uploaded_files()
+        files = await upload_service.list_uploaded_files()
         return {
             "success": True,
             "data": files

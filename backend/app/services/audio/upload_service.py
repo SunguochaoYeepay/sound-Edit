@@ -162,9 +162,9 @@ class AudioUploadService:
         
         return False
     
-    def list_uploaded_files(self) -> List[Dict]:
+    async def list_uploaded_files(self) -> List[Dict]:
         """
-        列出所有已上传的文件
+        列出所有已上传的文件（包含音频元数据）
         """
         files = []
         
@@ -172,13 +172,43 @@ class AudioUploadService:
             file_path = os.path.join(self.upload_dir, filename)
             if os.path.isfile(file_path):
                 file_id = filename.split('.')[0]  # 假设文件名格式为 uuid.extension
-                files.append({
-                    'file_id': file_id,
-                    'filename': filename,
-                    'file_path': file_path,
-                    'file_size': os.path.getsize(file_path),
-                    'upload_time': os.path.getctime(file_path)
-                })
+                
+                # 获取音频元数据
+                try:
+                    audio_info = await self.ffmpeg_service.get_audio_info(file_path)
+                    file_data = {
+                        'file_id': file_id,
+                        'filename': filename,
+                        'original_name': filename,  # 这里可能需要从其他地方获取原始名称
+                        'file_path': file_path,
+                        'file_size': os.path.getsize(file_path),
+                        'upload_time': os.path.getctime(file_path),
+                        'duration': audio_info['duration'],
+                        'sample_rate': audio_info['sample_rate'],
+                        'channels': audio_info['channels'],
+                        'format': audio_info['format'],
+                        'codec': audio_info['codec'],
+                        'bitrate': audio_info['bitrate']
+                    }
+                except Exception as e:
+                    # 如果获取音频信息失败，使用基本信息
+                    print(f"获取音频信息失败 {filename}: {e}")
+                    file_data = {
+                        'file_id': file_id,
+                        'filename': filename,
+                        'original_name': filename,
+                        'file_path': file_path,
+                        'file_size': os.path.getsize(file_path),
+                        'upload_time': os.path.getctime(file_path),
+                        'duration': 0,  # 默认值
+                        'sample_rate': 44100,
+                        'channels': 2,
+                        'format': 'unknown',
+                        'codec': 'unknown',
+                        'bitrate': 0
+                    }
+                
+                files.append(file_data)
         
         return sorted(files, key=lambda x: x['upload_time'], reverse=True)
     
