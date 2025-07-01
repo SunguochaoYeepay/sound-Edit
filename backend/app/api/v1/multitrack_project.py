@@ -235,7 +235,8 @@ async def download_preview_audio(file_id: str):
     下载预览音频文件
     """
     try:
-        file_path = f"outputs/preview_{file_id}.wav"
+        # 使用绝对路径，确保文件在backend目录下的outputs文件夹
+        file_path = os.path.abspath(f"outputs/preview_{file_id}.wav")
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="预览文件不存在")

@@ -814,6 +814,8 @@ async function startPlayback() {
     // 停止当前播放
     if (previewAudioElement) {
       previewAudioElement.pause()
+      previewAudioElement.src = ''
+      previewAudioElement.load()
       previewAudioElement = null
     }
     
@@ -840,34 +842,49 @@ async function startPlayback() {
     })
     
     previewAudioElement.addEventListener('canplay', () => {
+      if (!previewAudioElement) return
       console.log('预览音频可以播放')
       isPlaying.value = true
-      previewAudioElement.play().then(() => {
-        console.log('预览音频播放成功')
-      }).catch(error => {
-        console.error('预览音频播放失败:', error)
-        message.error('音频播放失败')
-        isLoadingPreview.value = false
-        isPlaying.value = false
-      })
       
-      // 开始更新播放时间
-      playInterval = setInterval(() => {
-        if (previewAudioElement && !previewAudioElement.paused) {
-          currentTime.value = Math.min(
-            currentTime.value + 0.1,
-            currentProject.value.project.totalDuration || 60
-          )
-        }
-      }, 100)
+      // 尝试播放音频
+      const playPromise = previewAudioElement.play()
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('预览音频播放成功')
+          // 开始更新播放时间
+          playInterval = setInterval(() => {
+            if (previewAudioElement && !previewAudioElement.paused) {
+              currentTime.value = Math.min(
+                currentTime.value + 0.1,
+                currentProject.value.project.totalDuration || 60
+              )
+            }
+          }, 100)
+        }).catch(error => {
+          console.error('预览音频播放失败:', error)
+          
+          if (error.name === 'NotAllowedError') {
+            message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
+            isLoadingPreview.value = false
+            isPlaying.value = false
+          } else {
+            message.error('音频播放失败: ' + error.message)
+            isLoadingPreview.value = false
+            isPlaying.value = false
+          }
+        })
+      }
     })
     
     previewAudioElement.addEventListener('ended', () => {
+      if (!previewAudioElement) return
       console.log('预览音频播放结束')
       stopPlayback()
     })
     
     previewAudioElement.addEventListener('error', (e) => {
+      if (!previewAudioElement) return
       console.error('预览音频播放错误:', e, e.target.error)
       message.error('音频播放失败: ' + (e.target.error?.message || '未知错误'))
       isLoadingPreview.value = false
@@ -902,6 +919,8 @@ function stopPlayback() {
   if (previewAudioElement) {
     previewAudioElement.pause()
     previewAudioElement.currentTime = 0
+    previewAudioElement.src = ''
+    previewAudioElement.load()
     previewAudioElement = null
   }
   

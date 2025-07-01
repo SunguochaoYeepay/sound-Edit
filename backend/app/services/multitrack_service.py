@@ -121,13 +121,16 @@ class MultitrackService:
                     continue
                     
                 for clip in track.clips:
+                    # 将文件ID转换为完整路径
+                    audio_file_path = f"uploads/audio/{clip.filePath}.wav"
+                    
                     # 检查文件是否存在
-                    if not os.path.exists(clip.filePath):
-                        print(f"警告: 音频文件不存在 {clip.filePath}")
+                    if not os.path.exists(audio_file_path):
+                        print(f"警告: 音频文件不存在 {audio_file_path}")
                         continue
                         
                     audio_tracks.append({
-                        "file_path": clip.filePath,
+                        "file_path": audio_file_path,
                         "start_time": clip.startTime,
                         "duration": clip.duration,
                         "volume": clip.volume * track.volume,
@@ -234,8 +237,9 @@ class MultitrackService:
             for track in project.tracks:
                 # 验证音频文件是否存在
                 for clip in track.clips:
-                    if not os.path.exists(clip.filePath):
-                        warnings.append(f"音频文件不存在: {clip.filePath}")
+                    audio_file_path = f"uploads/audio/{clip.filePath}.wav"
+                    if not os.path.exists(audio_file_path):
+                        warnings.append(f"音频文件不存在: {audio_file_path}")
                         
                     # 验证时间范围
                     if clip.startTime < 0:
@@ -297,16 +301,19 @@ class MultitrackService:
                     if clip_end <= start_time or clip.startTime >= preview_end:
                         continue  # 片段不在预览范围内
                     
+                    # 将文件ID转换为完整路径
+                    audio_file_path = f"uploads/audio/{clip.filePath}.wav"
+                    
                     # 检查文件是否存在
-                    if not os.path.exists(clip.filePath):
-                        print(f"警告: 音频文件不存在 {clip.filePath}")
+                    if not os.path.exists(audio_file_path):
+                        print(f"警告: 音频文件不存在 {audio_file_path}")
                         continue
                     
                     # 计算相对于预览开始时间的偏移
                     relative_start = max(0, clip.startTime - start_time)
                     
                     audio_tracks.append({
-                        "file_path": clip.filePath,
+                        "file_path": audio_file_path,
                         "start_time": relative_start,
                         "duration": clip.duration,
                         "volume": clip.volume * track.volume,

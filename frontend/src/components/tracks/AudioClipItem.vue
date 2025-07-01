@@ -303,8 +303,30 @@ function editClip() {
 }
 
 function playClip() {
-  // TODO: 播放这个音频片段
-  message.info(`播放音频片段: ${props.clip.name}`)
+  try {
+    // 构建音频文件URL
+    const audioUrl = `http://localhost:8000/api/v1/audio-files/download/${props.clip.filePath}`
+    
+    // 创建音频元素
+    const audio = new Audio(audioUrl)
+    
+    audio.addEventListener('canplay', () => {
+      audio.play()
+      message.success(`播放音频片段: ${props.clip.name}`)
+    })
+    
+    audio.addEventListener('error', (e) => {
+      console.error('音频播放失败:', e)
+      message.error(`播放失败: ${props.clip.name}`)
+    })
+    
+    // 开始加载音频
+    audio.load()
+    
+  } catch (error) {
+    console.error('播放音频片段失败:', error)
+    message.error('播放失败')
+  }
 }
 
 function showContextMenu(event) {
