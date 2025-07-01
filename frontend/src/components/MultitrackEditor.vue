@@ -850,6 +850,12 @@ async function downloadExportedFile() {
 
 // 播放控制
 async function togglePlay() {
+  // 如果正在加载，不处理
+  if (isLoadingPreview.value) {
+    console.log('正在加载预览，忽略播放切换')
+    return
+  }
+  
   if (isPlaying.value) {
     pausePlayback()
   } else {
@@ -864,6 +870,13 @@ async function startPlayback() {
     // 检查是否有项目
     if (!currentProject.value.project.id) {
       message.warning('请先创建或加载项目')
+      isLoadingPreview.value = false
+      return
+    }
+    
+    // 如果已在加载中，避免重复请求
+    if (isLoadingPreview.value && previewAudioElement) {
+      console.log('预览音频正在加载中，跳过重复请求')
       return
     }
     
@@ -966,10 +979,39 @@ async function startPlayback() {
     
     previewAudioElement.addEventListener('error', (e) => {
       if (!previewAudioElement) return
-      console.error('预览音频播放错误:', e, e.target.error)
-      message.error('音频播放失败: ' + (e.target.error?.message || '未知错误'))
+      const error = e.target.error
+      console.error('预览音频播放错误:', e, error)
+      
+      let errorMessage = '音频播放失败'
+      if (error) {
+        switch (error.code) {
+          case 1: // MEDIA_ERR_ABORTED
+            errorMessage = '音频播放被中止'
+            break
+          case 2: // MEDIA_ERR_NETWORK
+            errorMessage = '网络错误导致音频播放失败'
+            break
+          case 3: // MEDIA_ERR_DECODE
+            errorMessage = '音频解码失败'
+            break
+          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+            errorMessage = '音频格式不支持或文件损坏'
+            break
+          default:
+            errorMessage = '音频播放失败: ' + (error.message || '未知错误')
+        }
+      }
+      
+      message.error(errorMessage)
       isLoadingPreview.value = false
-      stopPlayback()
+      isPlaying.value = false
+      
+      // 清理音频元素但不删除文件（可能还需要重试）
+      if (previewAudioElement) {
+        previewAudioElement.src = ''
+        previewAudioElement.load()
+        previewAudioElement = null
+      }
     })
     
     // 开始加载音频
@@ -1013,9 +1055,11 @@ async function stopPlayback() {
   // 删除临时预览文件
   if (currentPreviewFile) {
     try {
-      const result = await deletePreviewFile(currentPreviewFile)
+      // 添加preview_前缀，因为后端生成的文件名是preview_{uuid}.wav
+      const previewFileName = `preview_${currentPreviewFile}.wav`
+      const result = await deletePreviewFile(previewFileName)
       if (result.success) {
-        console.log('预览文件已删除:', currentPreviewFile)
+        console.log('预览文件已删除:', previewFileName)
       } else {
         console.warn('删除预览文件失败:', result.error)
       }
