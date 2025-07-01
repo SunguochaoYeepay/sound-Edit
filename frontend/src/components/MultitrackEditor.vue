@@ -874,8 +874,8 @@ async function startPlayback() {
       return
     }
     
-    // 如果已在加载中，避免重复请求
-    if (isLoadingPreview.value && previewAudioElement) {
+    // 如果已在加载中或正在播放，避免重复请求
+    if (isLoadingPreview.value) {
       console.log('预览音频正在加载中，跳过重复请求')
       return
     }
@@ -928,7 +928,6 @@ async function startPlayback() {
     // 设置音频事件监听
     previewAudioElement.addEventListener('loadstart', () => {
       console.log('预览音频开始加载')
-      isLoadingPreview.value = false
     })
     
     previewAudioElement.addEventListener('loadeddata', () => {
@@ -938,6 +937,9 @@ async function startPlayback() {
     previewAudioElement.addEventListener('canplay', () => {
       if (!previewAudioElement) return
       console.log('预览音频可以播放')
+      
+      // 重置加载状态
+      isLoadingPreview.value = false
       isPlaying.value = true
       
       // 尝试播放音频
@@ -960,13 +962,13 @@ async function startPlayback() {
           
           if (error.name === 'NotAllowedError') {
             message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
-            isLoadingPreview.value = false
-            isPlaying.value = false
           } else {
             message.error('音频播放失败: ' + error.message)
-            isLoadingPreview.value = false
-            isPlaying.value = false
           }
+          
+          // 播放失败时重置状态
+          isLoadingPreview.value = false
+          isPlaying.value = false
         })
       }
     })
