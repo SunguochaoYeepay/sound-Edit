@@ -245,6 +245,9 @@
         <div v-if="currentProject.project.id" class="timeline-container">
           <!-- 时间标尺 -->
           <div class="timeline-ruler">
+            <!-- 左侧占位区域 -->
+            <div class="ruler-left-space"></div>
+            <!-- 时间标记区域 -->
             <div class="time-markers">
               <div
                 v-for="marker in timeMarkers"
@@ -258,7 +261,7 @@
             <!-- 播放头 -->
             <div 
               class="playhead" 
-              :style="{ left: `${(currentTime / viewDuration) * 100}%` }"
+              :style="{ left: `calc(200px + ${(currentTime / viewDuration) * 100}% - 200px * ${currentTime / viewDuration})` }"
             ></div>
           </div>
 
@@ -1764,11 +1767,19 @@ function handleDragEnd(event) {
   background: #2a2a2a;
   border-bottom: 1px solid #333;
   position: relative;
+  display: flex;
+}
+
+.ruler-left-space {
+  width: 200px;
+  background: #333;
+  border-right: 1px solid #444;
 }
 
 .time-markers {
   position: relative;
   height: 100%;
+  flex: 1;
 }
 
 .time-marker {

@@ -1,74 +1,78 @@
 <template>
-  <div class="track-editor" :style="{ borderLeft: `4px solid ${track.color}` }">
-    <!-- 音轨头部控制 -->
-    <div class="track-header">
-      <div class="track-info">
-        <div class="track-title">
+  <div class="track-editor">
+    <div class="track-container">
+      <!-- 左侧音轨控制面板 -->
+      <div class="track-control-panel" :style="{ borderLeft: `4px solid ${track.color}` }">
+        <div class="track-info">
           <EditableText 
             :value="track.name" 
             @change="updateTrackName"
             placeholder="音轨名称"
+            class="track-title"
           />
         </div>
-        <div class="track-type">{{ getTrackTypeLabel(track.type) }}</div>
+        
+        <div class="track-controls">
+          <!-- 静音/独奏/音量按钮 -->
+          <div class="control-row">
+            <a-button 
+              size="small" 
+              :type="track.muted ? 'primary' : 'default'"
+              @click="toggleMute"
+              class="control-btn"
+              title="静音"
+            >
+              <template #icon>
+                <SoundOutlined v-if="!track.muted" />
+                <StopOutlined v-else />
+              </template>
+            </a-button>
+            
+            <a-button 
+              size="small" 
+              :type="track.solo ? 'primary' : 'default'"
+              @click="toggleSolo"
+              class="control-btn"
+              title="独奏"
+            >
+              S
+            </a-button>
+            
+            <!-- 音量调节按钮 -->
+            <a-popover 
+              v-model:open="volumePopoverVisible"
+              title="音量调节"
+              trigger="click"
+              placement="right"
+            >
+              <template #content>
+                <div class="volume-popover">
+                  <a-slider 
+                    v-model:value="trackVolume" 
+                    :min="0" 
+                    :max="1" 
+                    :step="0.01"
+                    vertical
+                    :style="{ height: '100px' }"
+                    @change="updateVolume"
+                  />
+                  <div class="volume-text">{{ Math.round(trackVolume * 100) }}%</div>
+                </div>
+              </template>
+              <a-button 
+                size="small" 
+                class="control-btn"
+                title="音量调节"
+              >
+                {{ Math.round(trackVolume * 100) }}
+              </a-button>
+            </a-popover>
+          </div>
+        </div>
       </div>
       
-      <div class="track-controls">
-        <a-space>
-          <!-- 静音/独奏按钮 -->
-          <a-button 
-            size="small" 
-            :type="track.muted ? 'primary' : 'default'"
-            @click="toggleMute"
-          >
-            <template #icon>
-              <SoundOutlined v-if="!track.muted" />
-              <StopOutlined v-else />
-            </template>
-          </a-button>
-          
-          <a-button 
-            size="small" 
-            :type="track.solo ? 'primary' : 'default'"
-            @click="toggleSolo"
-          >
-            S
-          </a-button>
-          
-          <!-- 音量控制 -->
-          <div class="volume-control">
-            <SoundOutlined />
-            <a-slider 
-              v-model:value="trackVolume" 
-              :min="0" 
-              :max="1" 
-              :step="0.1"
-              style="width: 80px; margin: 0 8px;"
-              @change="updateVolume"
-            />
-            <span class="volume-label">{{ Math.round(trackVolume * 100) }}%</span>
-          </div>
-          
-          <!-- 添加音频片段 -->
-          <a-dropdown>
-            <a-button size="small">
-              <template #icon><PlusOutlined /></template>
-              添加
-            </a-button>
-            <template #overlay>
-              <a-menu @click="handleAddClip">
-                <a-menu-item key="upload">上传音频文件</a-menu-item>
-                <a-menu-item key="generate">生成空白片段</a-menu-item>
-                <a-menu-item key="record">录制音频</a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-        </a-space>
-      </div>
-    </div>
-    
-    <!-- 音轨时间线 -->
-    <div class="track-timeline" ref="timelineRef">
+      <!-- 右侧音轨时间线 -->
+      <div class="track-timeline" ref="timelineRef">
       <!-- 网格背景 -->
       <div class="timeline-grid">
         <div 
@@ -111,6 +115,7 @@
       >
         <CloudUploadOutlined />
         <span>拖拽音频文件到此处</span>
+        </div>
       </div>
     </div>
   </div>
@@ -122,7 +127,6 @@ import { message } from 'ant-design-vue'
 import {
   SoundOutlined,
   StopOutlined,
-  PlusOutlined,
   CloudUploadOutlined
 } from '@ant-design/icons-vue'
 
@@ -154,6 +158,7 @@ const emit = defineEmits(['update-track', 'update-clip', 'delete-clip', 'add-cli
 const timelineRef = ref(null)
 const isDragOver = ref(false)
 const trackVolume = ref(props.track.volume)
+const volumePopoverVisible = ref(false)
 
 // 计算属性
 const trackTypeLabels = {
@@ -214,38 +219,6 @@ function handleExclusiveSelect(clipId) {
   emit('select-exclusive', props.track.id, clipId)
 }
 
-// 添加音频片段
-function handleAddClip({ key }) {
-  switch (key) {
-    case 'upload':
-      // 触发文件上传
-      openFileDialog()
-      break
-    case 'generate':
-      // 生成空白片段
-      generateBlankClip()
-      break
-    case 'record':
-      // 开始录制
-      startRecording()
-      break
-  }
-}
-
-function openFileDialog() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'audio/*'
-  input.multiple = true
-  
-  input.onchange = (event) => {
-    const files = Array.from(event.target.files)
-    handleFileUpload(files)
-  }
-  
-  input.click()
-}
-
 async function handleFileUpload(files) {
   try {
     message.loading('正在上传音频文件...', 0)
@@ -261,7 +234,7 @@ async function handleFileUpload(files) {
         if (uploadResult.upload_success) {
           const clipData = {
             name: uploadResult.original_name.replace(/\.[^/.]+$/, ''),
-            filePath: uploadResult.file_path,
+            filePath: uploadResult.file_id,
             startTime: findNextAvailableTime() + successCount * 0.5,
             duration: uploadResult.duration || 3.0
           }
@@ -285,22 +258,6 @@ async function handleFileUpload(files) {
     console.error('文件上传失败:', error)
     message.error('文件上传失败')
   }
-}
-
-function generateBlankClip() {
-  const clipData = {
-    name: '空白片段',
-    filePath: '',
-    startTime: findNextAvailableTime(),
-    duration: 3.0
-  }
-  
-  emit('add-clip', props.track.id, clipData)
-}
-
-function startRecording() {
-  message.info('录制功能暂未实现')
-  // TODO: 实现录制功能
 }
 
 function findNextAvailableTime() {
@@ -396,57 +353,77 @@ onMounted(() => {
 
 <style scoped>
 .track-editor {
-  background: #2a2a2a;
   border-bottom: 1px solid #333;
   min-height: 80px;
 }
 
-.track-header {
+.track-container {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
+  height: 100%;
+}
+
+.track-control-panel {
+  width: 200px;
   background: #333;
-  border-bottom: 1px solid #444;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-right: 1px solid #444;
+  flex-shrink: 0;
 }
 
 .track-info {
-  flex: 1;
+  margin-bottom: 8px;
 }
 
 .track-title {
   font-weight: 500;
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 13px;
+  margin-bottom: 2px;
   color: #fff;
 }
 
 .track-type {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
 }
 
 .track-controls {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.volume-control {
+.control-row {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.volume-label {
+.control-btn {
+  min-width: 30px;
+  height: 28px;
   font-size: 12px;
-  color: #999;
-  min-width: 35px;
+}
+
+/* 音量弹窗样式 */
+.volume-popover {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-text {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
 }
 
 .track-timeline {
   position: relative;
-  height: 60px;
+  flex: 1;
+  height: 80px;
   background: #1e1e1e;
   overflow: hidden;
 }
@@ -502,7 +479,21 @@ onMounted(() => {
 /* 自定义滑块样式 */
 :deep(.ant-slider) {
   margin: 0;
-  width: 60px;
+  min-width: 60px;
+}
+
+:deep(.ant-slider .ant-slider-rail) {
+  height: 3px;
+}
+
+:deep(.ant-slider .ant-slider-track) {
+  height: 3px;
+}
+
+:deep(.ant-slider .ant-slider-handle) {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
 }
 
 :deep(.ant-slider-rail) {
@@ -544,5 +535,24 @@ onMounted(() => {
 :deep(.ant-btn-primary:hover) {
   background: #40a9ff;
   border-color: #40a9ff;
+}
+
+/* 弹窗样式 */
+:deep(.ant-popover) {
+  z-index: 1050;
+}
+
+:deep(.ant-popover-inner) {
+  background: #333;
+  color: #fff;
+}
+
+:deep(.ant-popover-title) {
+  color: #fff;
+  border-bottom: 1px solid #444;
+}
+
+:deep(.ant-popover-arrow) {
+  display: none;
 }
 </style> 

@@ -1,9 +1,7 @@
 <template>
   <div id="app">
     <a-layout>
-      <a-layout-header>
-        <h1 style="color: #fff;">Sound-Edit 多轨音频编辑器</h1>
-      </a-layout-header>
+    
       <a-layout-content style="padding: 0; min-height: 80vh;">
         <MultitrackEditor />
       </a-layout-content>
