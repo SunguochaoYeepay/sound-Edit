@@ -8,68 +8,62 @@
         <div class="resource-panel">
           <div class="panel-header">
             <h4>资源库</h4>
-            <a-space size="small">
-              <a-button size="small" @click="refreshAudioFiles">
-                <template #icon><SoundOutlined /></template>
-                刷新
-              </a-button>
-              <a-button size="small" @click="showImportDialog = true">
-                <template #icon><ImportOutlined /></template>
-                导入
-              </a-button>
-            </a-space>
+            <a-button size="small" @click="refreshAudioFiles" :icon="h(ReloadOutlined)" title="刷新资源库" />
           </div>
           <div class="panel-content">
             <div class="resource-tabs">
-              <a-tabs default-active-key="audio" size="small">
-                <a-tab-pane key="audio" tab="音频文件">
+              <a-tabs v-model:activeKey="activeAudioTab" size="small">
+                <a-tab-pane key="dialogue" tab="对话音">
                   <div class="audio-list">
-                    <!-- 上传按钮 -->
-                    <div class="upload-section">
-                      <a-upload
-                        :multiple="true"
-                        :show-upload-list="false"
-                        :before-upload="handleBeforeUpload"
-                        accept="audio/*"
-                      >
-                        <a-button type="primary" size="small" block>
-                          <template #icon><UploadOutlined /></template>
-                          上传音频
+                    <!-- 工具栏 -->
+                    <div class="toolbar-section">
+                      <div class="toolbar-left">
+                        <a-input-search
+                          v-model:value="searchKeyword"
+                          placeholder="搜索对话音..."
+                          size="small"
+                          @search="handleSearch"
+                        />
+                      </div>
+                      <div class="toolbar-right">
+                        <a-upload
+                          :multiple="true"
+                          :show-upload-list="false"
+                          :before-upload="(file) => handleBeforeUpload(file, 'dialogue')"
+                          accept="audio/*"
+                        >
+                          <a-button type="primary" size="small">
+                            <template #icon><UploadOutlined /></template>
+                            上传
+                          </a-button>
+                        </a-upload>
+                        <a-button size="small" @click="showImportDialog = true">
+                          <template #icon><ImportOutlined /></template>
+                          导入
                         </a-button>
-                      </a-upload>
-                    </div>
-                    
-                    <!-- 搜索框 -->
-                    <div class="search-section">
-                      <a-input-search
-                        v-model:value="searchKeyword"
-                        placeholder="搜索音频..."
-                        size="small"
-                        @search="handleSearch"
-                      />
+                      </div>
                     </div>
                     
                     <!-- 音频文件列表 -->
                     <div class="audio-files">
                       <a-spin :spinning="loadingAudioFiles">
-                        <div v-if="filteredAudioFiles.length === 0" class="empty-audio">
-                          <div class="empty-icon">🎵</div>
-                          <div class="empty-text">暂无音频文件</div>
-                          <div class="empty-desc">点击上传按钮添加音频文件</div>
+                        <div v-if="filteredDialogueFiles.length === 0" class="empty-audio">
+                          <div class="empty-icon">🎤</div>
+                          <div class="empty-text">暂无对话音文件</div>
+                          <div class="empty-desc">点击上传按钮添加对话音文件</div>
                         </div>
                         <div v-else>
-                                                     <div 
-                             class="audio-item" 
-                             v-for="file in filteredAudioFiles" 
-                             :key="file.file_id"
-                             :draggable="true"
-                             @click="selectAudioFile(file)"
-                             @dblclick="handleAddAudioToProject(file)"
-                             @dragstart="handleDragStart(file, $event)"
-                             @dragend="handleDragEnd"
-                           >
+                          <div 
+                            class="audio-item" 
+                            v-for="file in filteredDialogueFiles" 
+                            :key="file.file_id"
+                            :draggable="true"
+                            @click="selectAudioFile(file)"
+                            @dblclick="handleAddAudioToProject(file)"
+                            @dragstart="handleDragStart(file, $event)"
+                            @dragend="handleDragEnd"
+                          >
                             <div class="audio-preview">
-                              <!-- 播放按钮 -->
                               <a-button 
                                 size="small" 
                                 type="text" 
@@ -85,9 +79,6 @@
                                 <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
                                 <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
                                 <span v-else class="audio-format">WAV</span>
-                              </div>
-                              <div class="audio-hint">
-                                双击添加 | 拖拽到音轨
                               </div>
                             </div>
                             <div class="audio-actions">
@@ -113,11 +104,181 @@
                     </div>
                   </div>
                 </a-tab-pane>
-                <a-tab-pane key="effects" tab="音效">
-                  <div class="effects-list">
-                    <div class="effect-item" v-for="n in 3" :key="n">
-                      <div class="effect-icon">🎛️</div>
-                      <div class="effect-name">效果 {{ n }}</div>
+                <a-tab-pane key="environment" tab="环境音">
+                  <div class="audio-list">
+                    <!-- 工具栏 -->
+                    <div class="toolbar-section">
+                      <div class="toolbar-left">
+                        <a-input-search
+                          v-model:value="searchKeyword"
+                          placeholder="搜索环境音..."
+                          size="small"
+                          @search="handleSearch"
+                        />
+                      </div>
+                      <div class="toolbar-right">
+                        <a-upload
+                          :multiple="true"
+                          :show-upload-list="false"
+                          :before-upload="(file) => handleBeforeUpload(file, 'environment')"
+                          accept="audio/*"
+                        >
+                          <a-button type="primary" size="small">
+                            <template #icon><UploadOutlined /></template>
+                            上传
+                          </a-button>
+                        </a-upload>
+                        <a-button size="small" @click="showImportDialog = true">
+                          <template #icon><ImportOutlined /></template>
+                          导入
+                        </a-button>
+                      </div>
+                    </div>
+                    
+                    <!-- 音频文件列表 -->
+                    <div class="audio-files">
+                      <a-spin :spinning="loadingAudioFiles">
+                        <div v-if="filteredEnvironmentFiles.length === 0" class="empty-audio">
+                          <div class="empty-icon">🌿</div>
+                          <div class="empty-text">暂无环境音文件</div>
+                          <div class="empty-desc">点击上传按钮添加环境音文件</div>
+                        </div>
+                        <div v-else>
+                          <div 
+                            class="audio-item" 
+                            v-for="file in filteredEnvironmentFiles" 
+                            :key="file.file_id"
+                            :draggable="true"
+                            @click="selectAudioFile(file)"
+                            @dblclick="handleAddAudioToProject(file)"
+                            @dragstart="handleDragStart(file, $event)"
+                            @dragend="handleDragEnd"
+                          >
+                            <div class="audio-preview">
+                              <a-button 
+                                size="small" 
+                                type="text" 
+                                @click.stop="playAudioFile(file)"
+                                :icon="isPlayingFile(file.file_id) ? h(PauseCircleOutlined) : h(PlayCircleOutlined)"
+                              />
+                            </div>
+                            <div class="audio-info">
+                              <div class="audio-name" :title="file.original_name || file.filename">
+                                {{ file.original_name || file.filename || '未知文件' }}
+                              </div>
+                              <div class="audio-meta">
+                                <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
+                                <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
+                                <span v-else class="audio-format">WAV</span>
+                              </div>
+                            </div>
+                            <div class="audio-actions">
+                              <a-popconfirm
+                                title="确定要删除这个音频文件吗？"
+                                ok-text="删除"
+                                cancel-text="取消"
+                                @confirm="handleDeleteAudioFile(file)"
+                              >
+                                <a-button 
+                                  size="small" 
+                                  type="text"
+                                  danger
+                                  @click.stop
+                                  :icon="h(DeleteOutlined)"
+                                  title="删除文件"
+                                />
+                              </a-popconfirm>
+                            </div>
+                          </div>
+                        </div>
+                      </a-spin>
+                    </div>
+                  </div>
+                </a-tab-pane>
+                <a-tab-pane key="theme" tab="主题音">
+                  <div class="audio-list">
+                    <!-- 工具栏 -->
+                    <div class="toolbar-section">
+                      <div class="toolbar-left">
+                        <a-input-search
+                          v-model:value="searchKeyword"
+                          placeholder="搜索主题音..."
+                          size="small"
+                          @search="handleSearch"
+                        />
+                      </div>
+                      <div class="toolbar-right">
+                        <a-upload
+                          :multiple="true"
+                          :show-upload-list="false"
+                          :before-upload="(file) => handleBeforeUpload(file, 'theme')"
+                          accept="audio/*"
+                        >
+                          <a-button type="primary" size="small">
+                            <template #icon><UploadOutlined /></template>
+                            上传
+                          </a-button>
+                        </a-upload>
+                      </div>
+                    </div>
+                    
+                    <!-- 音频文件列表 -->
+                    <div class="audio-files">
+                      <a-spin :spinning="loadingAudioFiles">
+                        <div v-if="filteredThemeFiles.length === 0" class="empty-audio">
+                          <div class="empty-icon">🎼</div>
+                          <div class="empty-text">暂无主题音文件</div>
+                          <div class="empty-desc">点击上传按钮添加主题音文件</div>
+                        </div>
+                        <div v-else>
+                          <div 
+                            class="audio-item" 
+                            v-for="file in filteredThemeFiles" 
+                            :key="file.file_id"
+                            :draggable="true"
+                            @click="selectAudioFile(file)"
+                            @dblclick="handleAddAudioToProject(file)"
+                            @dragstart="handleDragStart(file, $event)"
+                            @dragend="handleDragEnd"
+                          >
+                            <div class="audio-preview">
+                              <a-button 
+                                size="small" 
+                                type="text" 
+                                @click.stop="playAudioFile(file)"
+                                :icon="isPlayingFile(file.file_id) ? h(PauseCircleOutlined) : h(PlayCircleOutlined)"
+                              />
+                            </div>
+                            <div class="audio-info">
+                              <div class="audio-name" :title="file.original_name || file.filename">
+                                {{ file.original_name || file.filename || '未知文件' }}
+                              </div>
+                              <div class="audio-meta">
+                                <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
+                                <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
+                                <span v-else class="audio-format">WAV</span>
+                              </div>
+                            </div>
+                            <div class="audio-actions">
+                              <a-popconfirm
+                                title="确定要删除这个音频文件吗？"
+                                ok-text="删除"
+                                cancel-text="取消"
+                                @confirm="handleDeleteAudioFile(file)"
+                              >
+                                <a-button 
+                                  size="small" 
+                                  type="text"
+                                  danger
+                                  @click.stop
+                                  :icon="h(DeleteOutlined)"
+                                  title="删除文件"
+                                />
+                              </a-popconfirm>
+                            </div>
+                          </div>
+                        </div>
+                      </a-spin>
                     </div>
                   </div>
                 </a-tab-pane>
@@ -172,7 +333,7 @@
         </div>
 
         <!-- 右侧：项目信息/音频片段信息 -->
-        <div class="project-panel">
+        <div class="project-panel" @click.stop>
           <div class="panel-header">
             <h4>{{ selectedClip ? '音频片段信息' : '项目信息' }}</h4>
             <a-space size="small" v-if="!selectedClip">
@@ -188,11 +349,15 @@
                 <template #icon><SaveOutlined /></template>
                 保存
               </a-button>
+              <a-button size="small" @click="exportAudio" :disabled="!currentProject.project.id" :loading="exportLoading" type="primary">
+                <template #icon><ExportOutlined /></template>
+                导出
+              </a-button>
             </a-space>
           </div>
           <div class="panel-content">
             <!-- 音频片段信息 -->
-            <div v-if="selectedClip" class="clip-details">
+            <div v-if="selectedClip" class="clip-details" @click.stop>
               <div class="project-field">
                 <label>片段名称：</label>
                 <EditableText 
@@ -254,7 +419,7 @@
             </div>
             
             <!-- 项目信息 -->
-            <div v-else-if="currentProject.project.id" class="project-details">
+            <div v-else-if="currentProject.project.id" class="project-details" @click.stop>
               <div class="project-field">
                 <label>项目名称：</label>
                 <EditableText 
@@ -287,12 +452,7 @@
                 <label>声道数：</label>
                 <span>{{ currentProject.project.channels }}</span>
               </div>
-              <div class="project-actions">
-                <a-button block @click="exportAudio" :disabled="!currentProject.project.id" :loading="exportLoading">
-                  <template #icon><ExportOutlined /></template>
-                  导出音频
-                </a-button>
-              </div>
+
             </div>
             
             <!-- 空状态 -->
@@ -308,43 +468,99 @@
       <!-- 下半部分：音轨编辑器 -->
       <div class="bottom-section">
         <div v-if="currentProject.project.id" class="timeline-container">
-          <!-- 时间标尺 -->
-          <div class="timeline-ruler">
-            <!-- 左侧占位区域 -->
-            <div class="ruler-left-space"></div>
-            <!-- 时间标记区域 -->
-            <div class="time-markers">
-              <div
-                v-for="marker in timeMarkers"
-                :key="marker.time"
-                class="time-marker"
-                :style="{ left: `${(marker.time / viewDuration) * 100}%` }"
-              >
-                <span class="time-label">{{ formatTime(marker.time) }}</span>
+          <!-- 工具栏 - 包含缩放控制 -->
+          <div class="timeline-toolbar">
+            <div class="toolbar-left">
+              <span class="toolbar-title">时间轴</span>
+            </div>
+            <div class="toolbar-right">
+              <!-- 缩放控制 -->
+              <div class="zoom-controls">
+                <span class="zoom-label">缩放:</span>
+                
+                <!-- 缩放滑块 -->
+                <div class="zoom-slider-container">
+                  <a-slider
+                    v-model:value="zoomLevel"
+                    :min="minZoom"
+                    :max="maxZoom"
+                    :step="0.01"
+                    :tooltip-formatter="(value) => `${Math.round(value * 100)}%`"
+                    @change="handleZoomSliderChange"
+                    style="width: 150px; margin: 0 12px;"
+                  />
+                </div>
+                
+                <!-- 缩放显示 -->
+                <div class="zoom-display">
+                  <span class="zoom-percentage">{{ Math.round(zoomLevel * 100) }}%</span>
+                </div>
+                
+                <!-- 当前显示范围 -->
+                <span class="view-range">显示: {{ Math.round(viewDuration) }}s</span>
               </div>
             </div>
-            <!-- 播放头 -->
-            <div 
-              class="playhead" 
-              :style="{ left: `calc(200px + ${(currentTime / viewDuration) * 100}% - 200px * ${currentTime / viewDuration})` }"
-            ></div>
           </div>
 
-          <!-- 音轨列表 -->
-          <div class="tracks-container">
-            <TrackEditor
-              v-for="track in currentProject.tracks"
-              :key="track.id"
-              :track="track"
-              :viewDuration="viewDuration"
-              :pixelsPerSecond="pixelsPerSecond"
-              :currentTime="currentTime"
-              @update-track="updateTrack"
-              @update-clip="updateClip"
-              @delete-clip="deleteClip"
-              @add-clip="addClip"
-              @select-exclusive="handleExclusiveSelect"
-            />
+          <!-- 时间轴主体区域 -->
+          <div class="timeline-main">
+            <!-- 时间标尺 -->
+            <div class="timeline-ruler">
+              <!-- 左侧固定区域 -->
+              <div class="ruler-left-space"></div>
+              <!-- 可滚动的时间标记区域 -->
+              <div class="ruler-scroll-container" ref="rulerScrollContainer">
+                <div class="time-markers" :style="{ width: timelineWidth + 'px' }">
+                  <div
+                    v-for="marker in timeMarkers"
+                    :key="marker.time"
+                    class="time-marker"
+                    :style="{ left: marker.time * pixelsPerSecond + 'px' }"
+                  >
+                    <span class="time-label">{{ formatTime(marker.time) }}</span>
+                  </div>
+                  <!-- 播放头 -->
+                  <div 
+                    class="playhead" 
+                    :style="{ left: currentTime * pixelsPerSecond + 'px' }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 音轨容器 -->
+            <div class="tracks-scroll-container" ref="tracksScrollContainer" @scroll="handleTimelineScroll">
+              <div class="tracks-wrapper">
+                <!-- 左侧音轨控制面板 -->
+                <div class="tracks-controls">
+                  <div v-for="track in currentProject.tracks" :key="track.id" class="track-control">
+                    <div class="track-color-bar" :style="{ backgroundColor: track.color }"></div>
+                    <div class="track-info">
+                      <span class="track-name">{{ track.name }}</span>
+                      <span class="track-type">{{ track.type }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 右侧音轨内容区域 -->
+                <div class="tracks-content" :style="{ width: timelineWidth + 'px' }">
+                  <TrackEditor
+                    v-for="track in currentProject.tracks"
+                    :key="track.id"
+                    :track="track"
+                    :viewDuration="viewDuration"
+                    :pixelsPerSecond="pixelsPerSecond"
+                    :currentTime="currentTime"
+                    :timelineWidth="timelineWidth"
+                    @update-track="updateTrack"
+                    @update-clip="updateClip"
+                    @delete-clip="deleteClip"
+                    @add-clip="addClip"
+                    @select-exclusive="handleExclusiveSelect"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -453,7 +669,8 @@ import {
   StopOutlined,
   SoundOutlined,
   UploadOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 
 import {
@@ -495,6 +712,9 @@ const showProjectList = ref(false)
 const showImportDialog = ref(false)
 const showExportProgress = ref(false)
 
+// 音频分类相关
+const activeAudioTab = ref('dialogue') // 当前选中的音频标签页
+
 
 // 播放控制
 const isPlaying = ref(false)
@@ -519,15 +739,52 @@ const selectedClip = computed(() => {
 })
 
 // 视图控制
-const viewDuration = ref(60) // 显示的时间范围（秒）
-const pixelsPerSecond = computed(() => 800 / viewDuration.value) // 每秒的像素数
+const baseViewDuration = ref(60) // 基础显示时间范围（秒）
+const zoomLevel = ref(1) // 缩放级别，1为默认，2为放大2倍，0.5为缩小50%
+const basePixelsPerSecond = 50 // 基础像素比例（每秒50像素）
+const pixelsPerSecond = computed(() => basePixelsPerSecond * zoomLevel.value) // 每秒的像素数
+
+// 时间轴滚动相关
+const rulerScrollContainer = ref(null)
+const tracksScrollContainer = ref(null)
+
+// 当前视图显示的时间范围（会根据缩放级别调整）
+const viewDuration = computed(() => {
+  // 缩放级别越大，显示的时间范围越小（看得更细致）
+  return Math.max(10, baseViewDuration.value / zoomLevel.value)
+})
+
+// 时间轴总宽度计算
+const timelineWidth = computed(() => {
+  const totalDuration = Math.max(currentProject.value.project.totalDuration || 60, baseViewDuration.value)
+  return totalDuration * pixelsPerSecond.value
+})
+
+// 缩放控制
+const minZoom = 0.25 // 最小缩放 25%（可查看更长时间）
+const maxZoom = 8    // 最大缩放 800%（精细编辑）
+const zoomSteps = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8] // 预设缩放级别
 
 // 时间标记
 const timeMarkers = computed(() => {
   const markers = []
-  const step = viewDuration.value >= 120 ? 10 : viewDuration.value >= 60 ? 5 : 1
+  const totalDuration = Math.max(currentProject.value.project.totalDuration || 60, baseViewDuration.value)
   
-  for (let time = 0; time <= viewDuration.value; time += step) {
+  // 根据缩放级别动态调整时间刻度间隔
+  let step
+  if (zoomLevel.value >= 4) {
+    step = 0.5  // 高度放大时显示0.5秒间隔
+  } else if (zoomLevel.value >= 2) {
+    step = 1    // 中度放大时显示1秒间隔
+  } else if (zoomLevel.value >= 1) {
+    step = 5    // 默认显示5秒间隔
+  } else if (zoomLevel.value >= 0.5) {
+    step = 10   // 缩小时显示10秒间隔
+  } else {
+    step = 30   // 高度缩小时显示30秒间隔
+  }
+  
+  for (let time = 0; time <= totalDuration; time += step) {
     markers.push({ time })
   }
   return markers
@@ -565,6 +822,37 @@ const filteredAudioFiles = computed(() => {
   
   const keyword = searchKeyword.value.toLowerCase()
   return audioFiles.value.filter(file => 
+    (file.original_name || file.filename).toLowerCase().includes(keyword)
+  )
+})
+
+// 分类过滤的音频文件
+const filteredDialogueFiles = computed(() => {
+  const files = audioFiles.value.filter(file => file.category === 'dialogue' || !file.category) // 默认为对话音
+  if (!searchKeyword.value) return files
+  
+  const keyword = searchKeyword.value.toLowerCase()
+  return files.filter(file => 
+    (file.original_name || file.filename).toLowerCase().includes(keyword)
+  )
+})
+
+const filteredEnvironmentFiles = computed(() => {
+  const files = audioFiles.value.filter(file => file.category === 'environment')
+  if (!searchKeyword.value) return files
+  
+  const keyword = searchKeyword.value.toLowerCase()
+  return files.filter(file => 
+    (file.original_name || file.filename).toLowerCase().includes(keyword)
+  )
+})
+
+const filteredThemeFiles = computed(() => {
+  const files = audioFiles.value.filter(file => file.category === 'theme')
+  if (!searchKeyword.value) return files
+  
+  const keyword = searchKeyword.value.toLowerCase()
+  return files.filter(file => 
     (file.original_name || file.filename).toLowerCase().includes(keyword)
   )
 })
@@ -682,6 +970,8 @@ function updateClip(trackId, clipId, updates) {
     if (clip) {
       Object.assign(clip, updates)
       updateProjectDuration()
+      // 自动保存项目
+      autoSaveProject()
     }
   }
 }
@@ -693,6 +983,8 @@ function deleteClip(trackId, clipId) {
     if (index !== -1) {
       track.clips.splice(index, 1)
       updateProjectDuration()
+      // 自动保存项目
+      autoSaveProject()
     }
   }
 }
@@ -717,6 +1009,8 @@ function addClip(trackId, clipData) {
     }
     track.clips.push(newClip)
     updateProjectDuration()
+    // 自动保存项目
+    autoSaveProject()
   }
 }
 
@@ -727,7 +1021,28 @@ function updateProjectDuration() {
 function updateViewDuration() {
   const projectDuration = currentProject.value.project.totalDuration
   if (projectDuration > 0) {
-    viewDuration.value = Math.max(60, Math.ceil(projectDuration / 10) * 10)
+    baseViewDuration.value = Math.max(60, Math.ceil(projectDuration / 10) * 10)
+  }
+}
+
+// 缩放控制方法
+function resetZoom() {
+  zoomLevel.value = 1
+  console.log('时间轴缩放重置到: 100%')
+  message.success('时间轴缩放重置到: 100%')
+}
+
+// 缩放滑块变化处理
+function handleZoomSliderChange(value) {
+  // 滑块变化时不显示消息，减少干扰
+  console.log(`时间轴缩放滑块变化: ${Math.round(value * 100)}%`)
+}
+
+// 时间轴滚动同步
+function handleTimelineScroll(event) {
+  const scrollLeft = event.target.scrollLeft
+  if (rulerScrollContainer.value) {
+    rulerScrollContainer.value.scrollLeft = scrollLeft
   }
 }
 
@@ -860,12 +1175,8 @@ async function togglePlay() {
   if (isPlaying.value) {
     pausePlayback()
   } else {
-    // 如果有可用的音频元素且未结束，恢复播放；否则重新开始
-    if (previewAudioElement && !previewAudioElement.ended && previewAudioElement.src) {
-      resumePlayback()
-    } else {
-      await startPlayback()
-    }
+    // 重新开始播放（每次都生成新的预览音频）
+    await startPlayback()
   }
 }
 
@@ -889,7 +1200,7 @@ async function startPlayback() {
     // 计算预览时长
     const totalDuration = currentProject.value.project.totalDuration || 60  // 默认60秒
     const remainingDuration = totalDuration - currentTime.value
-    const previewDuration = Math.min(10.0, Math.max(1.0, remainingDuration))  // 至少1秒，最多10秒
+    const previewDuration = Math.max(1.0, remainingDuration)  // 至少1秒，不设上限
     
     console.log('预览播放参数:', {
       projectId: currentProject.value.project.id,
@@ -984,12 +1295,21 @@ async function startPlayback() {
         playPromise.then(() => {
           console.log('预览音频播放成功')
           // 开始更新播放时间
+          const startTime = currentTime.value  // 记录播放开始时的项目时间
           playInterval = setInterval(() => {
             if (previewAudioElement && !previewAudioElement.paused) {
-              currentTime.value = Math.min(
-                currentTime.value + 0.1,
-                currentProject.value.project.totalDuration || 60
-              )
+              // 计算项目中的绝对时间：开始时间 + 音频播放时间
+              const newTime = startTime + previewAudioElement.currentTime
+              const projectDuration = currentProject.value.project.totalDuration || 0
+              
+              // 检查是否超过项目总时长
+              if (newTime >= projectDuration && projectDuration > 0) {
+                console.log('播放时间到达项目结尾，自动停止播放')
+                stopPlayback()
+                return
+              }
+              
+              currentTime.value = newTime
             }
           }, 100)
         }).catch(error => {
@@ -1077,6 +1397,7 @@ function pausePlayback() {
   isPlaying.value = false
   if (previewAudioElement) {
     previewAudioElement.pause()
+    // 不重置currentTime，保持当前播放位置
   }
   if (playInterval) {
     clearInterval(playInterval)
@@ -1084,38 +1405,7 @@ function pausePlayback() {
   }
 }
 
-function resumePlayback() {
-  if (!previewAudioElement) return
-  
-  console.log('恢复播放预览音频')
-  isPlaying.value = true
-  
-  const playPromise = previewAudioElement.play()
-  
-  if (playPromise !== undefined) {
-    playPromise.then(() => {
-      console.log('预览音频恢复播放成功')
-      // 开始更新播放时间
-      playInterval = setInterval(() => {
-        if (previewAudioElement && !previewAudioElement.paused) {
-          currentTime.value = Math.min(
-            currentTime.value + 0.1,
-            currentProject.value.project.totalDuration || 60
-          )
-        }
-      }, 100)
-    }).catch(error => {
-      console.error('预览音频恢复播放失败:', error)
-      isPlaying.value = false
-      
-      if (error.name === 'NotAllowedError') {
-        message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
-      } else {
-        message.error('音频播放失败: ' + error.message)
-      }
-    })
-  }
-}
+
 
 async function stopPlayback() {
   isPlaying.value = false
@@ -1160,6 +1450,29 @@ function saveCurrentProjectToLocalStorage() {
     localStorage.setItem('sound-edit-current-project-data', JSON.stringify(currentProject.value))
     console.log('项目已自动保存到本地缓存:', currentProject.value.project.title)
   }
+}
+
+// 自动保存项目到服务器（防抖处理）
+let autoSaveTimer = null
+function autoSaveProject() {
+  if (!currentProject.value.project.id) return
+  
+  // 清除之前的定时器
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  // 设置延迟保存，避免频繁请求
+  autoSaveTimer = setTimeout(async () => {
+    try {
+      const result = await saveProject(currentProject.value.project.id, currentProject.value)
+      if (result.success) {
+        console.log('项目已自动保存到服务器:', currentProject.value.project.title)
+      }
+    } catch (error) {
+      console.warn('自动保存项目失败:', error)
+    }
+  }, 1000) // 1秒延迟
 }
 
 function clearProjectCache() {
@@ -1227,12 +1540,38 @@ function handleKeyDown(event) {
       clearAllSelections()
       event.preventDefault()
       break
+    case '=':
+    case '+':
+      // 加号键：放大
+      if (event.ctrlKey || event.metaKey) {
+        zoomIn()
+        event.preventDefault()
+      }
+      break
+    case '-':
+    case '_':
+      // 减号键：缩小
+      if (event.ctrlKey || event.metaKey) {
+        zoomOut()
+        event.preventDefault()
+      }
+      break
+    case '0':
+      // Ctrl+0：重置缩放
+      if (event.ctrlKey || event.metaKey) {
+        resetZoom()
+        event.preventDefault()
+      }
+      break
   }
 }
 
 function handleGlobalClick(event) {
-  // 如果点击的不是音频片段相关元素，清除所有选中状态
-  if (!event.target.closest('.audio-clip') && !event.target.closest('.ant-modal')) {
+  // 如果点击的不是音频片段相关元素和项目信息面板，清除所有选中状态
+  if (!event.target.closest('.audio-clip') && 
+      !event.target.closest('.ant-modal') && 
+      !event.target.closest('.project-panel') &&
+      !event.target.closest('.clip-details')) {
     clearAllSelections()
   }
 }
@@ -1307,6 +1646,9 @@ function updateSelectedClip(updates) {
     for (const clip of track.clips) {
       if (clip.selected) {
         Object.assign(clip, updates)
+        updateProjectDuration()
+        // 自动保存项目
+        autoSaveProject()
         break
       }
     }
@@ -1423,7 +1765,8 @@ async function loadAudioFiles() {
     loadingAudioFiles.value = true
     const result = await listAudioFiles()
     if (result.success) {
-      audioFiles.value = result.data
+      // 直接使用数据库返回的数据，包含正确的分类信息
+      audioFiles.value = result.data || []
     }
   } catch (error) {
     console.error('加载音频文件失败:', error)
@@ -1433,12 +1776,17 @@ async function loadAudioFiles() {
   }
 }
 
-async function handleBeforeUpload(file) {
+async function handleBeforeUpload(file, category = 'dialogue') {
   try {
-    const result = await uploadMultipleAudioFiles([file])
+    // 获取当前项目ID（如果有的话）
+    const projectId = currentProject.value?.project?.id || null
+    
+    const result = await uploadMultipleAudioFiles([file], category, projectId)
     if (result.success && result.data[0].upload_success) {
-      message.success(`${file.name} 上传成功`)
-      await loadAudioFiles() // 重新加载文件列表
+      message.success(`${file.name} 上传到${getCategoryLabel(category)}成功`)
+      
+      // 重新加载文件列表（分类信息已经保存在数据库中）
+      await loadAudioFiles()
     } else {
       message.error(`${file.name} 上传失败`)
     }
@@ -1447,6 +1795,16 @@ async function handleBeforeUpload(file) {
     message.error(`${file.name} 上传失败`)
   }
   return false // 阻止默认上传行为
+}
+
+// 获取分类标签
+function getCategoryLabel(category) {
+  const labels = {
+    dialogue: '对话音',
+    environment: '环境音',
+    theme: '主题音'
+  }
+  return labels[category] || '对话音'
 }
 
 function handleSearch(value) {
@@ -1656,7 +2014,7 @@ function handleDragEnd(event) {
 /* 面板内容 */
 .panel-content {
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   overflow: auto;
 }
 
@@ -1674,7 +2032,7 @@ function handleDragEnd(event) {
 }
 
 .resource-tabs :deep(.ant-tabs-content-holder) {
-  padding-top: 16px;
+  padding-top: 8px;
 }
 
 .audio-list {
@@ -1683,12 +2041,28 @@ function handleDragEnd(event) {
   height: 100%;
 }
 
-.upload-section {
-  margin-bottom: 16px;
+.toolbar-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
 }
 
-.search-section {
-  margin-bottom: 16px;
+.toolbar-left {
+  flex: 1;
+  min-width: 120px;
+  max-width: 180px;
+}
+
+.toolbar-left .ant-input-search {
+  width: 100%;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .audio-files {
@@ -1698,34 +2072,34 @@ function handleDragEnd(event) {
 
 .empty-audio {
   text-align: center;
-  padding: 32px 16px;
+  padding: 24px 12px;
   color: #666;
 }
 
 .empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-text {
-  font-size: 14px;
+  font-size: 28px;
   margin-bottom: 8px;
 }
 
+.empty-text {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
 .empty-desc {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
 }
 
 .audio-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #3a3a3a;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   border: 1px solid transparent;
 }
 
@@ -1755,14 +2129,14 @@ function handleDragEnd(event) {
 }
 
 .audio-preview {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #555;
   border-radius: 4px;
-  margin-right: 12px;
+  margin-right: 10px;
 }
 
 .audio-info {
@@ -1772,9 +2146,9 @@ function handleDragEnd(event) {
 
 .audio-name {
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1782,12 +2156,12 @@ function handleDragEnd(event) {
 
 .audio-meta {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
 .audio-duration, .audio-format {
-  font-size: 11px;
+  font-size: 10px;
   color: #999;
 }
 
@@ -1875,18 +2249,6 @@ function handleDragEnd(event) {
   border-radius: 3px;
   font-size: 10px;
   font-weight: 500;
-}
-
-.audio-hint {
-  color: #666;
-  font-size: 11px;
-  font-style: italic;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.audio-item:hover .audio-hint {
-  opacity: 1;
 }
 
 /* 预览区域样式 */
@@ -2019,13 +2381,7 @@ function handleDragEnd(event) {
   overflow: hidden;
 }
 
-.timeline-ruler {
-  height: 40px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #333;
-  position: relative;
-  display: flex;
-}
+
 
 .ruler-left-space {
   width: 200px;
@@ -2137,5 +2493,153 @@ function handleDragEnd(event) {
 .export-progress {
   text-align: center;
   padding: 20px;
+}
+
+/* 时间轴工具栏 */
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2a2a2a;
+  border-bottom: 1px solid #333;
+  padding: 8px 16px;
+  height: 50px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* 时间轴主体区域 */
+.timeline-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.timeline-ruler {
+  height: 40px;
+  display: flex;
+  background: #2a2a2a;
+  border-bottom: 1px solid #333;
+}
+
+.ruler-scroll-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ruler-scroll-container::-webkit-scrollbar {
+  display: none; /* 隐藏滚动条，因为主滚动条在下面 */
+}
+
+.tracks-scroll-container {
+  flex: 1;
+  overflow: auto;
+  background: #1e1e1e;
+}
+
+.tracks-wrapper {
+  display: flex;
+  min-height: 100%;
+}
+
+.tracks-controls {
+  width: 200px;
+  background: #333;
+  border-right: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.tracks-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-control {
+  height: 60px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #444;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.track-color-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.track-info {
+  flex: 1;
+}
+
+.track-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.track-type {
+  color: #999;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zoom-slider-container {
+  display: flex;
+  align-items: center;
+}
+
+.zoom-display {
+  display: flex;
+  align-items: center;
+}
+
+.zoom-percentage {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
+.zoom-label,
+.view-range {
+  color: #ccc;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.view-range {
+  background: #2a2a2a;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #444;
 }
 </style> 

@@ -27,3 +27,25 @@ coverage/
 # Others
 .idea/
 *.swp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Audio files and generated content
+uploads/
+outputs/
+exports/
+projects/
+
+# Preview and temporary audio files
+preview_*.wav
+preview_*.mp3
+temp_*.wav
+temp_*.mp3
+
+# Debug and temporary files
+debug/
+temp/
+*.tmp

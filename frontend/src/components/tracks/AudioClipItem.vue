@@ -165,13 +165,13 @@ const waveformColor = computed(() => {
 
 // 计算样式
 const clipStyle = computed(() => {
-  const left = (props.clip.startTime / props.viewDuration) * 100
-  const width = (props.clip.duration / props.viewDuration) * 100
+  // 使用绝对像素定位，基于pixelsPerSecond比例
+  const left = props.clip.startTime * props.pixelsPerSecond
+  const width = Math.max(props.clip.duration * props.pixelsPerSecond, 20)
   
   return {
-    left: `${left}%`,
-    width: `${width}%`,
-    minWidth: '20px'
+    left: `${left}px`,
+    width: `${width}px`
   }
 })
 
@@ -373,7 +373,11 @@ function getPopupContainer() {
 
 // 全局点击事件处理
 function handleGlobalClick(event) {
-  if (!event.target.closest('.audio-clip')) {
+  // 如果点击的不是音频片段、项目信息面板或模态框，则取消选中
+  if (!event.target.closest('.audio-clip') && 
+      !event.target.closest('.project-panel') &&
+      !event.target.closest('.clip-details') &&
+      !event.target.closest('.ant-modal')) {
     selected.value = false
   }
 }

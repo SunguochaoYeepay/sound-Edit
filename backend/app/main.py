@@ -3,9 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from app.api.v1 import audio_editor, multitrack_project, audio_files
+from app.database import engine
+from app.models import Base
 
 
 app = FastAPI(title="sound-Edit 多轨音频合成服务")
+
+# 创建数据库表
+Base.metadata.create_all(bind=engine)
 
 # 配置 CORS
 app.add_middleware(

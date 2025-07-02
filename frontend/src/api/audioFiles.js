@@ -4,12 +4,19 @@ const API_BASE = 'http://localhost:8000/api/v1/audio-files'
 /**
  * 上传单个音频文件
  */
-export async function uploadAudioFile(file) {
+export async function uploadAudioFile(file, category = 'dialogue', projectId = null) {
   const formData = new FormData()
   formData.append('file', file)
   
+  // 添加分类和项目ID参数
+  const params = new URLSearchParams()
+  params.append('category', category)
+  if (projectId) {
+    params.append('project_id', projectId)
+  }
+  
   try {
-    const response = await fetch(`${API_BASE}/upload`, {
+    const response = await fetch(`${API_BASE}/upload?${params}`, {
       method: 'POST',
       body: formData
     })
@@ -28,14 +35,21 @@ export async function uploadAudioFile(file) {
 /**
  * 批量上传音频文件
  */
-export async function uploadMultipleAudioFiles(files) {
+export async function uploadMultipleAudioFiles(files, category = 'dialogue', projectId = null) {
   const formData = new FormData()
   files.forEach(file => {
     formData.append('files', file)
   })
   
+  // 添加分类和项目ID参数
+  const params = new URLSearchParams()
+  params.append('category', category)
+  if (projectId) {
+    params.append('project_id', projectId)
+  }
+  
   try {
-    const response = await fetch(`${API_BASE}/upload/multiple`, {
+    const response = await fetch(`${API_BASE}/upload/multiple?${params}`, {
       method: 'POST',
       body: formData
     })

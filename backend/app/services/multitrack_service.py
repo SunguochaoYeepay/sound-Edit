@@ -282,10 +282,9 @@ class MultitrackService:
             # 生成预览文件ID
             preview_id = str(uuid.uuid4())
             
-            # 计算预览时长（默认10秒或剩余时长）
+            # 计算预览时长（剩余项目时长）
             if duration is None:
-                max_duration = project.project.totalDuration - start_time
-                duration = min(10.0, max_duration)
+                duration = max(1.0, project.project.totalDuration - start_time)
             
             # 转换为音频合成请求格式
             audio_tracks = []

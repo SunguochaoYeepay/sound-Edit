@@ -1,85 +1,14 @@
 <template>
   <div class="track-editor">
-    <div class="track-container">
-      <!-- 左侧音轨控制面板 -->
-      <div class="track-control-panel" :style="{ borderLeft: `4px solid ${track.color}` }">
-        <div class="track-info">
-          <EditableText 
-            :value="track.name" 
-            @change="updateTrackName"
-            placeholder="音轨名称"
-            class="track-title"
-          />
-        </div>
-        
-        <div class="track-controls">
-          <!-- 静音/独奏/音量按钮 -->
-          <div class="control-row">
-            <a-button 
-              size="small" 
-              :type="track.muted ? 'primary' : 'default'"
-              @click="toggleMute"
-              class="control-btn"
-              title="静音"
-            >
-              <template #icon>
-                <SoundOutlined v-if="!track.muted" />
-                <StopOutlined v-else />
-              </template>
-            </a-button>
-            
-            <a-button 
-              size="small" 
-              :type="track.solo ? 'primary' : 'default'"
-              @click="toggleSolo"
-              class="control-btn"
-              title="独奏"
-            >
-              S
-            </a-button>
-            
-            <!-- 音量调节按钮 -->
-            <a-popover 
-              v-model:open="volumePopoverVisible"
-              title="音量调节"
-              trigger="click"
-              placement="right"
-            >
-              <template #content>
-                <div class="volume-popover">
-                  <a-slider 
-                    v-model:value="trackVolume" 
-                    :min="0" 
-                    :max="1" 
-                    :step="0.01"
-                    vertical
-                    :style="{ height: '100px' }"
-                    @change="updateVolume"
-                  />
-                  <div class="volume-text">{{ Math.round(trackVolume * 100) }}%</div>
-                </div>
-              </template>
-              <a-button 
-                size="small" 
-                class="control-btn"
-                title="音量调节"
-              >
-                {{ Math.round(trackVolume * 100) }}
-              </a-button>
-            </a-popover>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 右侧音轨时间线 -->
-      <div class="track-timeline" ref="timelineRef">
+    <!-- 音轨时间线 -->
+    <div class="track-timeline" ref="timelineRef">
       <!-- 网格背景 -->
       <div class="timeline-grid">
         <div 
           v-for="n in Math.ceil(viewDuration)"
           :key="n"
           class="grid-line"
-          :style="{ left: `${(n / viewDuration) * 100}%` }"
+          :style="{ left: n * pixelsPerSecond + 'px' }"
         />
       </div>
       
@@ -101,7 +30,7 @@
       <!-- 播放头 -->
       <div 
         class="track-playhead" 
-        :style="{ left: `${(currentTime / viewDuration) * 100}%` }"
+        :style="{ left: currentTime * pixelsPerSecond + 'px' }"
       ></div>
       
       <!-- 拖拽区域提示 -->
@@ -118,7 +47,6 @@
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup>
@@ -150,15 +78,17 @@ const props = defineProps({
   currentTime: {
     type: Number,
     default: 0
+  },
+  timelineWidth: {
+    type: Number,
+    default: 800
   }
 })
 
-const emit = defineEmits(['update-track', 'update-clip', 'delete-clip', 'add-clip', 'select-exclusive'])
+const emit = defineEmits(['update-clip', 'delete-clip', 'add-clip', 'select-exclusive'])
 
 const timelineRef = ref(null)
 const isDragOver = ref(false)
-const trackVolume = ref(props.track.volume)
-const volumePopoverVisible = ref(false)
 
 // 计算属性
 const trackTypeLabels = {
@@ -171,27 +101,7 @@ function getTrackTypeLabel(type) {
   return trackTypeLabels[type] || type
 }
 
-// 监听音量变化
-watch(() => props.track.volume, (newVolume) => {
-  trackVolume.value = newVolume
-})
 
-// 音轨控制方法
-function updateTrackName(newName) {
-  emit('update-track', props.track.id, { name: newName })
-}
-
-function toggleMute() {
-  emit('update-track', props.track.id, { muted: !props.track.muted })
-}
-
-function toggleSolo() {
-  emit('update-track', props.track.id, { solo: !props.track.solo })
-}
-
-function updateVolume(volume) {
-  emit('update-track', props.track.id, { volume })
-}
 
 // 音频片段操作
 function updateClip(clipId, updates) {
@@ -223,7 +133,15 @@ async function handleFileUpload(files) {
   try {
     message.loading('正在上传音频文件...', 0)
     
-    const result = await uploadMultipleAudioFiles(files)
+    // 根据音轨类型确定分类
+    let category = 'dialogue'
+    if (props.track.type === 'environment') {
+      category = 'environment'
+    } else if (props.track.type === 'background') {
+      category = 'theme'
+    }
+    
+    const result = await uploadMultipleAudioFiles(files, category)
     
     message.destroy()
     
@@ -282,7 +200,7 @@ function handleDrop(event) {
   // 获取时间线的位置信息
   const timelineRect = timelineRef.value.getBoundingClientRect()
   const dropX = event.clientX - timelineRect.left
-  const dropTime = (dropX / timelineRect.width) * props.viewDuration
+  const dropTime = dropX / props.pixelsPerSecond
   
   // 尝试获取拖拽的音频文件数据
   try {
@@ -353,77 +271,13 @@ onMounted(() => {
 
 <style scoped>
 .track-editor {
-  border-bottom: 1px solid #333;
-  min-height: 80px;
-}
-
-.track-container {
-  display: flex;
-  height: 100%;
-}
-
-.track-control-panel {
-  width: 200px;
-  background: #333;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  border-right: 1px solid #444;
-  flex-shrink: 0;
-}
-
-.track-info {
-  margin-bottom: 8px;
-}
-
-.track-title {
-  font-weight: 500;
-  font-size: 13px;
-  margin-bottom: 2px;
-  color: #fff;
-}
-
-.track-type {
-  font-size: 11px;
-  color: #999;
-}
-
-.track-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.control-row {
-  display: flex;
-  gap: 6px;
-}
-
-.control-btn {
-  min-width: 30px;
-  height: 28px;
-  font-size: 12px;
-}
-
-/* 音量弹窗样式 */
-.volume-popover {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.volume-text {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
+  height: 60px;
 }
 
 .track-timeline {
   position: relative;
-  flex: 1;
-  height: 80px;
+  width: 100%;
+  height: 100%;
   background: #1e1e1e;
   overflow: hidden;
 }
@@ -476,83 +330,5 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-/* 自定义滑块样式 */
-:deep(.ant-slider) {
-  margin: 0;
-  min-width: 60px;
-}
 
-:deep(.ant-slider .ant-slider-rail) {
-  height: 3px;
-}
-
-:deep(.ant-slider .ant-slider-track) {
-  height: 3px;
-}
-
-:deep(.ant-slider .ant-slider-handle) {
-  width: 12px;
-  height: 12px;
-  margin-top: -4px;
-}
-
-:deep(.ant-slider-rail) {
-  background: #444;
-}
-
-:deep(.ant-slider-track) {
-  background: #1890ff;
-}
-
-:deep(.ant-slider-handle) {
-  border-color: #1890ff;
-  background: #1890ff;
-}
-
-:deep(.ant-slider-handle:hover) {
-  border-color: #40a9ff;
-}
-
-/* 自定义按钮样式 */
-:deep(.ant-btn) {
-  border-color: #444;
-  background: #333;
-  color: #ccc;
-}
-
-:deep(.ant-btn:hover) {
-  border-color: #555;
-  background: #404040;
-  color: #fff;
-}
-
-:deep(.ant-btn-primary) {
-  background: #1890ff;
-  border-color: #1890ff;
-  color: #fff;
-}
-
-:deep(.ant-btn-primary:hover) {
-  background: #40a9ff;
-  border-color: #40a9ff;
-}
-
-/* 弹窗样式 */
-:deep(.ant-popover) {
-  z-index: 1050;
-}
-
-:deep(.ant-popover-inner) {
-  background: #333;
-  color: #fff;
-}
-
-:deep(.ant-popover-title) {
-  color: #fff;
-  border-bottom: 1px solid #444;
-}
-
-:deep(.ant-popover-arrow) {
-  display: none;
-}
 </style> 

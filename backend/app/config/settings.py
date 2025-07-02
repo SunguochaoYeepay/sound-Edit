@@ -13,5 +13,8 @@ class Settings:
     # 音频处理相关
     AUDIO_OUTPUT_DIR = os.getenv("AUDIO_OUTPUT_DIR", "./outputs")
     FFmpeg_BIN = os.getenv("FFMPEG_BIN", "ffmpeg")
+    
+    # 数据库配置
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sound_edit.db")
 
 settings = Settings()

@@ -4,8 +4,11 @@ import aiofiles
 from typing import List, Dict, Optional
 from fastapi import UploadFile, HTTPException
 from pathlib import Path
+from sqlalchemy.orm import Session
 
 from .ffmpeg_service import FFmpegService
+from app.models import AudioFile, AudioCategory
+from app.database import SessionLocal
 
 
 class AudioUploadService:
@@ -25,7 +28,7 @@ class AudioUploadService:
         # 确保上传目录存在
         os.makedirs(self.upload_dir, exist_ok=True)
     
-    async def upload_audio_file(self, file: UploadFile) -> Dict:
+    async def upload_audio_file(self, file: UploadFile, category: str = "dialogue", project_id: Optional[str] = None) -> Dict:
         """
         上传单个音频文件
         """
@@ -38,6 +41,7 @@ class AudioUploadService:
         file_name = f"{file_id}{file_extension}"
         file_path = os.path.join(self.upload_dir, file_name)
         
+        db = SessionLocal()
         try:
             # 保存文件
             async with aiofiles.open(file_path, 'wb') as f:
@@ -56,28 +60,44 @@ class AudioUploadService:
                 print(f"波形提取失败: {e}")
                 waveform_data = []
             
-            return {
-                'file_id': file_id,
-                'original_name': file.filename,
-                'file_path': file_path,
-                'file_size': len(content),
-                'duration': audio_info['duration'],
-                'sample_rate': audio_info['sample_rate'],
-                'channels': audio_info['channels'],
-                'format': audio_info['format'],
-                'codec': audio_info['codec'],
-                'bitrate': audio_info['bitrate'],
+            # 保存到数据库
+            audio_file = AudioFile(
+                file_id=file_id,
+                original_name=file.filename,
+                file_path=file_path,
+                category=AudioCategory(category),
+                project_id=project_id,
+                file_size=len(content),
+                duration=audio_info['duration'],
+                sample_rate=audio_info['sample_rate'],
+                channels=audio_info['channels'],
+                format=audio_info['format'],
+                codec=audio_info['codec'],
+                bitrate=audio_info['bitrate']
+            )
+            
+            db.add(audio_file)
+            db.commit()
+            db.refresh(audio_file)
+            
+            result = audio_file.to_dict()
+            result.update({
                 'waveform_data': waveform_data,
                 'upload_success': True
-            }
+            })
+            
+            return result
             
         except Exception as e:
+            db.rollback()
             # 如果处理失败，删除已上传的文件
             if os.path.exists(file_path):
                 os.remove(file_path)
             raise HTTPException(status_code=500, detail=f"文件处理失败: {str(e)}")
+        finally:
+            db.close()
     
-    async def upload_multiple_files(self, files: List[UploadFile]) -> List[Dict]:
+    async def upload_multiple_files(self, files: List[UploadFile], category: str = "dialogue", project_id: Optional[str] = None) -> List[Dict]:
         """
         批量上传音频文件
         """
@@ -85,7 +105,7 @@ class AudioUploadService:
         
         for file in files:
             try:
-                result = await self.upload_audio_file(file)
+                result = await self.upload_audio_file(file, category, project_id)
                 results.append(result)
             except Exception as e:
                 results.append({
@@ -147,70 +167,48 @@ class AudioUploadService:
     
     async def delete_file(self, file_id: str) -> bool:
         """
-        删除上传的文件
+        删除上传的文件（同时删除文件和数据库记录）
         """
-        # 查找并删除文件
-        for filename in os.listdir(self.upload_dir):
-            if filename.startswith(file_id):
-                file_path = os.path.join(self.upload_dir, filename)
+        db = SessionLocal()
+        try:
+            # 从数据库获取文件信息
+            audio_file = db.query(AudioFile).filter(AudioFile.file_id == file_id).first()
+            if not audio_file:
+                return False
+            
+            # 删除物理文件
+            if os.path.exists(audio_file.file_path):
                 try:
-                    os.remove(file_path)
-                    return True
+                    os.remove(audio_file.file_path)
                 except Exception as e:
-                    print(f"删除文件失败: {e}")
-                    return False
-        
-        return False
+                    print(f"删除物理文件失败: {e}")
+            
+            # 删除数据库记录
+            db.delete(audio_file)
+            db.commit()
+            return True
+            
+        except Exception as e:
+            db.rollback()
+            print(f"删除文件失败: {e}")
+            return False
+        finally:
+            db.close()
     
-    async def list_uploaded_files(self) -> List[Dict]:
+    async def list_uploaded_files(self, project_id: Optional[str] = None) -> List[Dict]:
         """
-        列出所有已上传的文件（包含音频元数据）
+        列出所有已上传的文件（从数据库读取）
         """
-        files = []
-        
-        for filename in os.listdir(self.upload_dir):
-            file_path = os.path.join(self.upload_dir, filename)
-            if os.path.isfile(file_path):
-                file_id = filename.split('.')[0]  # 假设文件名格式为 uuid.extension
-                
-                # 获取音频元数据
-                try:
-                    audio_info = await self.ffmpeg_service.get_audio_info(file_path)
-                    file_data = {
-                        'file_id': file_id,
-                        'filename': filename,
-                        'original_name': filename,  # 这里可能需要从其他地方获取原始名称
-                        'file_path': file_path,
-                        'file_size': os.path.getsize(file_path),
-                        'upload_time': os.path.getctime(file_path),
-                        'duration': audio_info['duration'],
-                        'sample_rate': audio_info['sample_rate'],
-                        'channels': audio_info['channels'],
-                        'format': audio_info['format'],
-                        'codec': audio_info['codec'],
-                        'bitrate': audio_info['bitrate']
-                    }
-                except Exception as e:
-                    # 如果获取音频信息失败，使用基本信息
-                    print(f"获取音频信息失败 {filename}: {e}")
-                    file_data = {
-                        'file_id': file_id,
-                        'filename': filename,
-                        'original_name': filename,
-                        'file_path': file_path,
-                        'file_size': os.path.getsize(file_path),
-                        'upload_time': os.path.getctime(file_path),
-                        'duration': 0,  # 默认值
-                        'sample_rate': 44100,
-                        'channels': 2,
-                        'format': 'unknown',
-                        'codec': 'unknown',
-                        'bitrate': 0
-                    }
-                
-                files.append(file_data)
-        
-        return sorted(files, key=lambda x: x['upload_time'], reverse=True)
+        db = SessionLocal()
+        try:
+            query = db.query(AudioFile)
+            if project_id:
+                query = query.filter(AudioFile.project_id == project_id)
+            
+            audio_files = query.order_by(AudioFile.created_at.desc()).all()
+            return [file.to_dict() for file in audio_files]
+        finally:
+            db.close()
     
     async def convert_to_standard_format(self, file_id: str, 
                                        output_format: str = 'wav',
