@@ -2,7 +2,9 @@
   <div class="resource-panel">
     <div class="panel-header">
       <h4>资源库</h4>
-      <a-button size="small" @click="$emit('refresh')" :icon="h(ReloadOutlined)" title="刷新资源库" />
+      <a-space size="small">
+        <a-button size="small" @click="$emit('refresh')" :icon="h(ReloadOutlined)" title="刷新资源库" />
+      </a-space>
     </div>
     <div class="panel-content">
       <div class="resource-tabs">
@@ -13,12 +15,14 @@
               :loading="loading"
               :search-keyword="searchKeyword"
               :playing-file-id="playingFileId"
+              :show-import-button="true"
               category="dialogue"
               placeholder="搜索对话音..."
               empty-icon="🎤"
               empty-text="暂无对话音文件"
-              empty-desc="点击上传按钮添加对话音文件"
+              empty-desc="点击上传或导入按钮添加对话音文件"
               @upload="handleUpload"
+              @import="$emit('import-json')"
               @search="$emit('search', $event)"
               @select="$emit('select-file', $event)"
               @play="$emit('play-file', $event)"
@@ -34,12 +38,14 @@
               :loading="loading"
               :search-keyword="searchKeyword"
               :playing-file-id="playingFileId"
+              :show-import-button="true"
               category="environment"
               placeholder="搜索环境音..."
               empty-icon="🌿"
               empty-text="暂无环境音文件"
-              empty-desc="点击上传按钮添加环境音文件"
+              empty-desc="点击上传或导入按钮添加环境音文件"
               @upload="handleUpload"
+              @import="$emit('import-json')"
               @search="$emit('search', $event)"
               @select="$emit('select-file', $event)"
               @play="$emit('play-file', $event)"
@@ -55,12 +61,14 @@
               :loading="loading"
               :search-keyword="searchKeyword"
               :playing-file-id="playingFileId"
+              :show-import-button="true"
               category="theme"
               placeholder="搜索主题音..."
               empty-icon="🎼"
               empty-text="暂无主题音文件"
-              empty-desc="点击上传按钮添加主题音文件"
+              empty-desc="点击上传或导入按钮添加主题音文件"
               @upload="handleUpload"
+              @import="$emit('import-json')"
               @search="$emit('search', $event)"
               @select="$emit('select-file', $event)"
               @play="$emit('play-file', $event)"
@@ -108,6 +116,7 @@ const props = defineProps({
 // Emits
 const emit = defineEmits([
   'refresh',
+  'import-json',
   'tab-change',
   'upload',
   'search',

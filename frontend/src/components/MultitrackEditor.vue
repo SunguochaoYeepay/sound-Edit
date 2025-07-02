@@ -12,6 +12,7 @@
           :playing-file-id="playingFileId"
           :active-tab="activeAudioTab"
           @refresh="refreshAudioFiles"
+          @import-json="showImportDialog = true"
           @tab-change="activeAudioTab = $event"
           @upload="handleBeforeUpload"
           @search="handleSearch"
@@ -47,14 +48,14 @@
           @export-project="exportCurrentProject"
           @update-project="updateProjectInfo"
           @update-clip="updateSelectedClip"
-          @clear-selection="clearSelectedClip"
+          @clear-selection="clearAllSelections"
         />
       </div>
 
       <!-- 下半部分：音轨编辑器 -->
       <div class="bottom-section">
         <TimelineEditor
-          v-if="currentProject.project.id"
+          v-if="currentProject.project.id || currentProject.tracks.length > 0"
           ref="timelineEditor"
           :tracks="currentProject.tracks"
           :current-time="currentTime"
@@ -101,12 +102,49 @@
       @update:open="showImportDialog = $event"
       @success="handleImportSuccess"
     />
+
+    <!-- 导出进度对话框 -->
+    <a-modal
+      v-model:open="showExportProgress"
+      title="导出进度"
+      :footer="exportStatus === 'completed' ? null : undefined"
+      :closable="exportStatus !== 'processing'"
+      :maskClosable="false"
+    >
+      <div class="export-progress">
+        <a-result
+          v-if="exportStatus === 'completed'"
+          status="success"
+          title="导出完成"
+          sub-title="音频文件已成功生成"
+        >
+          <template #extra>
+            <a-button type="primary" @click="downloadExportedFile">下载文件</a-button>
+            <a-button @click="showExportProgress = false">关闭</a-button>
+          </template>
+        </a-result>
+        <a-result
+          v-else-if="exportStatus === 'failed'"
+          status="error"
+          title="导出失败"
+          :sub-title="exportMessage"
+        >
+          <template #extra>
+            <a-button @click="showExportProgress = false">关闭</a-button>
+          </template>
+        </a-result>
+        <div v-else>
+          <a-spin size="large" />
+          <p style="margin-top: 16px; text-align: center;">{{ exportMessage || '正在处理音频...' }}</p>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { h } from 'vue'
 
 // 导入子组件
@@ -182,10 +220,35 @@ const showCreateProject = ref(false)
 const showProjectList = ref(false)
 const showImportDialog = ref(false)
 const exportLoading = ref(false)
+const showExportProgress = ref(false)
+
+// 导出相关状态
+const exportStatus = ref('')
+const exportMessage = ref('')
+const currentExportTaskId = ref('')
+
+// 创建项目表单
+const createForm = reactive({
+  title: '',
+  description: '',
+  author: 'AI-Sound'
+})
+
+// 导入表单
+const importForm = ref({
+  type: 'dialogue',
+  data: null
+})
 
 // 音频播放相关
 let currentAudio = null
-let currentAudioId = null
+let currentAudioId = 0
+let playInterval = null
+
+// 预览播放相关
+let previewAudioElement = null
+let currentPreviewFile = null
+let autoSaveTimer = null
 
 // 拖拽状态
 const draggedAudioFile = ref(null)
@@ -286,7 +349,7 @@ async function playFileAudio(file) {
     currentAudio.audioId = currentAudioId
     
     // 设置音频源
-    const fileUrl = `/api/v1/audio-files/${file.file_id}/file`
+    const fileUrl = `/api/v1/audio-files/download/${file.file_id}`
     currentAudio.src = fileUrl
     currentAudio.crossOrigin = 'anonymous'
     
@@ -320,7 +383,7 @@ function stopAudioPlayback() {
     currentAudio.src = ''
     currentAudio = null
   }
-  currentAudioId = null
+  currentAudioId = 0
   playingFileId.value = null
 }
 
@@ -376,34 +439,208 @@ function handleDragEnd(event) {
   console.log('拖拽结束')
 }
 
-// 预览播放控制
+// 播放控制（完整版本）
 async function togglePlay() {
+  // 如果正在加载，不处理
+  if (isLoadingPreview.value) {
+    console.log('正在加载预览，忽略播放切换')
+    return
+  }
+  
   if (isPlaying.value) {
-    await pausePreview()
+    pausePlayback()
   } else {
-    await playPreview()
+    // 重新开始播放（每次都生成新的预览音频）
+    await startPlayback()
   }
 }
 
-async function playPreview() {
-  if (!currentProject.project.id) return
-  
+async function startPlayback() {
   try {
+    // 如果已在加载中，避免重复请求
+    if (isLoadingPreview.value) {
+      console.log('预览音频正在加载中，跳过重复请求')
+      return
+    }
+    
     isLoadingPreview.value = true
     
-         const response = await generatePreviewAudio(currentProject.project.id, currentTime.value, 60)
-    if (response.success) {
-      // 播放预览文件
-      await playPreviewAudio(response.data.preview_file)
-    } else {
-      message.error('生成预览失败')
+    // 检查是否有项目
+    if (!currentProject.project.id) {
+      message.warning('请先创建或加载项目')
+      isLoadingPreview.value = false
+      return
     }
+    
+    // 计算预览时长
+    const totalDuration = currentProject.project.totalDuration || 60  // 默认60秒
+    const remainingDuration = totalDuration - currentTime.value
+    const previewDuration = Math.max(1.0, remainingDuration)  // 至少1秒，不设上限
+    
+    console.log('预览播放参数:', {
+      projectId: currentProject.project.id,
+      currentTime: currentTime.value,
+      totalDuration,
+      previewDuration
+    })
+    
+    // 生成预览音频
+    const previewResult = await generatePreviewAudio(
+      currentProject.project.id,
+      currentTime.value,
+      previewDuration
+    )
+    
+    if (!previewResult.success) {
+      message.error('生成预览音频失败: ' + (previewResult.message || '未知错误'))
+      isLoadingPreview.value = false
+      return
+    }
+    
+    console.log('预览音频生成成功:', previewResult)
+    
+    // 停止当前播放并清理旧的音频元素
+    if (previewAudioElement) {
+      previewAudioElement.pause()
+      previewAudioElement.src = ''
+      previewAudioElement = null
+    }
+    
+    // 创建新的音频元素
+    currentAudioId++  // 增加音频ID
+    const audioId = currentAudioId
+    currentPreviewFile = previewResult.data.preview_file
+    const audioUrl = getPreviewAudioUrl(currentPreviewFile)
+    
+    console.log('创建预览音频元素:', {
+      audioId: audioId,
+      previewFile: currentPreviewFile,
+      audioUrl: audioUrl
+    })
+    
+    previewAudioElement = new Audio()
+    previewAudioElement.audioId = audioId  // 为音频元素分配ID
+    previewAudioElement.crossOrigin = 'anonymous'
+    previewAudioElement.preload = 'auto'
+    
+    // 设置音频事件监听
+    previewAudioElement.addEventListener('canplay', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      if (!previewAudioElement) return
+      console.log('预览音频可以播放')
+      
+      // 重置加载状态
+      isLoadingPreview.value = false
+      isPlaying.value = true
+      
+      // 尝试播放音频
+      const playPromise = previewAudioElement.play()
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('预览音频播放成功')
+          // 开始更新播放时间
+          const startTime = currentTime.value  // 记录播放开始时的项目时间
+          playInterval = setInterval(() => {
+            if (previewAudioElement && !previewAudioElement.paused) {
+              // 计算项目中的绝对时间：开始时间 + 音频播放时间
+              const newTime = startTime + previewAudioElement.currentTime
+              const projectDuration = currentProject.project.totalDuration || 0
+              
+              // 检查是否超过项目总时长
+              if (newTime >= projectDuration && projectDuration > 0) {
+                console.log('播放时间到达项目结尾，自动停止播放')
+                stopPlayback()
+                return
+              }
+              
+              currentTime.value = newTime
+            }
+          }, 100)
+        }).catch(error => {
+          console.error('预览音频播放失败:', error)
+          
+          if (error.name === 'NotAllowedError') {
+            message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
+          } else {
+            message.error('音频播放失败: ' + error.message)
+          }
+          
+          // 播放失败时重置状态
+          isLoadingPreview.value = false
+          isPlaying.value = false
+        })
+      }
+    })
+    
+    previewAudioElement.addEventListener('ended', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      if (!previewAudioElement) return
+      console.log('预览音频播放结束')
+      stopPlayback()
+    })
+    
+    previewAudioElement.addEventListener('error', (e) => {
+      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
+      if (!previewAudioElement) return
+      const error = e.target.error
+      console.error('预览音频播放错误:', e, error)
+      
+      let errorMessage = '音频播放失败'
+      if (error) {
+        switch (error.code) {
+          case 1: // MEDIA_ERR_ABORTED
+            errorMessage = '音频播放被中止'
+            break
+          case 2: // MEDIA_ERR_NETWORK
+            errorMessage = '网络错误导致音频播放失败'
+            break
+          case 3: // MEDIA_ERR_DECODE
+            errorMessage = '音频解码失败'
+            break
+          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+            errorMessage = '音频格式不支持或文件损坏'
+            break
+          default:
+            errorMessage = '音频播放失败: ' + (error.message || '未知错误')
+        }
+      }
+      
+      message.error(errorMessage)
+      isLoadingPreview.value = false
+      isPlaying.value = false
+      
+      // 清理音频元素但不删除文件（可能还需要重试）
+      if (previewAudioElement) {
+        previewAudioElement.src = ''
+        previewAudioElement.load()
+        previewAudioElement = null
+      }
+    })
+    
+    // 设置音频源并开始加载
+    previewAudioElement.src = audioUrl
+    previewAudioElement.load()
+    
+    // 设置超时保护，如果10秒内没有触发canplay事件，则重置状态
+    setTimeout(() => {
+      if (isLoadingPreview.value) {
+        console.warn('音频加载超时，重置加载状态')
+        isLoadingPreview.value = false
+        message.warning('音频加载超时，请重试')
+      }
+    }, 10000)
+    
   } catch (error) {
-    console.error('播放预览失败:', error)
-    message.error('播放预览失败')
-  } finally {
+    console.error('启动播放失败:', error)
+    message.error('启动播放失败')
     isLoadingPreview.value = false
   }
+}
+
+// 兼容旧接口
+async function playPreview() {
+  await startPlayback()
 }
 
 async function playPreviewAudio(previewFile) {
@@ -414,7 +651,7 @@ async function playPreviewAudio(previewFile) {
     currentAudioId = Date.now().toString()
     currentAudio.audioId = currentAudioId
     
-    currentAudio.src = `/api/v1/preview/${previewFile}`
+    currentAudio.src = `/api/v1/multitrack/preview/download/${previewFile}`
     
     const checkAudioId = (e) => e.target.audioId === currentAudioId
     
@@ -423,10 +660,25 @@ async function playPreviewAudio(previewFile) {
       isLoadingPreview.value = false
     })
     
-    currentAudio.addEventListener('timeupdate', (e) => {
-      if (!checkAudioId(e)) return
-      currentTime.value = e.target.currentTime
-    })
+    // 使用setInterval实现平滑的时间更新，而不是依赖timeupdate事件
+    // 记录播放开始时的项目时间
+    const startTime = currentTime.value
+    playInterval = setInterval(() => {
+      if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
+        // 计算项目中的绝对时间：开始时间 + 音频播放时间
+        const newTime = startTime + currentAudio.currentTime
+        const projectDuration = currentProject.project.totalDuration || 0
+        
+        // 检查是否超过项目总时长
+        if (newTime >= projectDuration && projectDuration > 0) {
+          console.log('播放时间到达项目结尾，自动停止播放')
+          stopPlayback()
+          return
+        }
+        
+        currentTime.value = newTime
+      }
+    }, 50) // 50ms间隔，比旧版本100ms更加流畅
     
     currentAudio.addEventListener('ended', (e) => {
       if (!checkAudioId(e)) return
@@ -449,40 +701,61 @@ async function playPreviewAudio(previewFile) {
   }
 }
 
-async function pausePreview() {
-  if (currentAudio) {
-    currentAudio.pause()
-    isPlaying.value = false
+function pausePlayback() {
+  isPlaying.value = false
+  if (previewAudioElement) {
+    previewAudioElement.pause()
+    // 不重置currentTime，保持当前播放位置
+  }
+  if (playInterval) {
+    clearInterval(playInterval)
+    playInterval = null
   }
 }
 
 async function stopPlayback() {
-  stopPreviewAudio()
+  isPlaying.value = false
   currentTime.value = 0
   
-  // 删除预览文件
-  if (currentAudio?.src) {
-    const previewFile = currentAudio.src.split('/').pop()
-    if (previewFile.startsWith('preview_')) {
-      try {
-        await deletePreviewFile(previewFile)
-      } catch (error) {
-        console.error('删除预览文件失败:', error)
+  if (previewAudioElement) {
+    previewAudioElement.pause()
+    previewAudioElement.currentTime = 0
+    previewAudioElement.src = ''
+    previewAudioElement.load()
+    previewAudioElement = null
+  }
+  
+  if (playInterval) {
+    clearInterval(playInterval)
+    playInterval = null
+  }
+  
+  // 删除临时预览文件
+  if (currentPreviewFile) {
+    try {
+      // 添加preview_前缀，因为后端生成的文件名是preview_{uuid}.wav
+      const previewFileName = `preview_${currentPreviewFile}.wav`
+      const result = await deletePreviewFile(previewFileName)
+      if (result.success) {
+        console.log('预览文件已删除:', previewFileName)
+      } else {
+        console.warn('删除预览文件失败:', result.error)
       }
+    } catch (error) {
+      console.error('删除预览文件出错:', error)
     }
   }
+  
+  currentPreviewFile = null
+}
+
+// 兼容旧接口
+async function pausePreview() {
+  pausePlayback()
 }
 
 function stopPreviewAudio() {
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-    currentAudio.src = ''
-    currentAudio = null
-  }
-  currentAudioId = null
-  isPlaying.value = false
-  isLoadingPreview.value = false
+  stopPlayback()
 }
 
 // 项目管理
@@ -600,41 +873,7 @@ function updateProjectDuration() {
   currentProject.project.totalDuration = calculateProjectDuration(currentProject)
 }
 
-// 自动保存项目到服务器（防抖处理）
-let autoSaveTimer = null
-function autoSaveProject() {
-  const projectId = currentProject.project?.id
-  
-  // 确保项目ID是有效的字符串
-  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
-    console.log('跳过自动保存：项目ID无效', projectId)
-    return
-  }
-  
-  // 清除之前的定时器
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
 
-  // 设置延迟保存，避免频繁请求
-  autoSaveTimer = setTimeout(async () => {
-    try {
-      console.log('正在自动保存项目，ID:', projectId)
-      const result = await saveProject(projectId, currentProject)
-      if (result.success) {
-        console.log('项目已自动保存到服务器:', currentProject.project.title)
-      } else {
-        console.warn('自动保存失败:', result.message)
-      }
-    } catch (error) {
-      console.warn('自动保存项目失败:', error)
-      // 如果是422错误，说明项目可能还没有创建，或者ID有问题
-      if (error.response?.status === 422) {
-        console.log('项目可能需要先保存到服务器才能自动保存')
-      }
-    }
-  }, 1000) // 1秒延迟
-}
 
 function handleExclusiveSelect(trackId, clipId) {
   // 清除所有音频片段的选中状态
@@ -671,8 +910,17 @@ async function handleProjectCreated(projectData) {
 
     const result = await createProject(newProject)
     if (result.success) {
-      Object.assign(currentProject, result.data)
+      // 正确地更新reactive对象的每个属性，保持响应性
+      Object.assign(currentProject.project, result.data.project)
+      currentProject.tracks.splice(0, currentProject.tracks.length, ...result.data.tracks)
+      currentProject.markers = result.data.markers || []
+      // 保存到本地存储
+      saveCurrentProjectToLocalStorage()
       message.success('项目创建成功')
+      console.log('项目创建成功，当前项目:', currentProject)
+      // 关闭创建对话框并重置表单
+      showCreateProject.value = false
+      resetCreateForm()
     }
   } catch (error) {
     console.error('创建项目失败:', error)
@@ -680,16 +928,55 @@ async function handleProjectCreated(projectData) {
   }
 }
 
+// 表单重置功能
+function resetCreateForm() {
+  createForm.title = ''
+  createForm.description = ''
+  createForm.author = 'AI-Sound'
+}
+
+function resetImportForm() {
+  importForm.value = {
+    type: 'dialogue',
+    data: null
+  }
+}
+
 async function handleProjectSelected(projectId) {
   try {
     const result = await loadProject(projectId)
     if (result.success) {
-      Object.assign(currentProject, result.data)
+      // 正确地更新reactive对象的每个属性，保持响应性
+      Object.assign(currentProject.project, result.data.project)
+      currentProject.tracks.splice(0, currentProject.tracks.length, ...result.data.tracks)
+      currentProject.markers = result.data.markers || []
+      showProjectList.value = false
+      // 保存到本地存储
+      saveCurrentProjectToLocalStorage()
       message.success('项目加载成功')
+      console.log('项目加载成功，当前项目:', currentProject)
     }
   } catch (error) {
     console.error('加载项目失败:', error)
     message.error('加载项目失败')
+  }
+}
+
+async function handleDeleteProject(projectId) {
+  try {
+    const result = await deleteProject(projectId)
+    if (result.success) {
+      message.success('项目删除成功')
+      // 如果删除的是当前项目，重置编辑器
+      if (currentProject.project.id === projectId) {
+        Object.assign(currentProject, createEmptyProject())
+        // 清除本地缓存
+        clearProjectCache()
+      }
+    }
+  } catch (error) {
+    console.error('删除项目失败:', error)
+    message.error('删除项目失败')
   }
 }
 
@@ -700,8 +987,12 @@ async function handleImportSuccess(importData) {
     
     const result = await convertToStandardFormat(conversionData)
     if (result.success) {
-      Object.assign(currentProject, result.data)
+      // 正确地更新reactive对象的每个属性，保持响应性
+      Object.assign(currentProject.project, result.data.project)
+      currentProject.tracks.splice(0, currentProject.tracks.length, ...result.data.tracks)
+      currentProject.markers = result.data.markers || []
       message.success('JSON导入成功')
+      console.log('JSON导入成功，当前项目:', currentProject)
     }
   } catch (error) {
     console.error('JSON导入失败:', error)
@@ -738,34 +1029,61 @@ async function saveCurrentProject() {
   }
 }
 
-// 导出项目
-async function exportCurrentProject() {
-  const projectId = currentProject.project?.id
-  
-  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
-    message.error('无效的项目，请先创建并保存项目')
-    return
-  }
+// 音频导出（完整流程）
+async function exportAudio() {
+  if (!currentProject.project.id) return
 
   try {
     exportLoading.value = true
+    const result = await exportProject(currentProject.project.id)
     
-    const result = await exportProject(projectId)
     if (result.success) {
-      message.success('项目导出完成，请查看下载文件')
-      // 这里可以触发下载或显示下载链接
-      if (result.downloadUrl) {
-        window.open(result.downloadUrl, '_blank')
-      }
-    } else {
-      message.error('项目导出失败: ' + (result.message || '未知错误'))
+      currentExportTaskId.value = result.export_task_id
+      exportStatus.value = 'processing'
+      exportMessage.value = result.message
+      showExportProgress.value = true
+      
+      // 开始轮询导出状态
+      startExportPolling()
     }
   } catch (error) {
-    console.error('导出项目失败:', error)
-    message.error('导出项目失败: ' + (error.response?.data?.detail || error.message))
+    console.error('导出失败:', error)
+    message.error('导出失败')
   } finally {
     exportLoading.value = false
   }
+}
+
+function startExportPolling() {
+  const pollInterval = setInterval(async () => {
+    try {
+      const status = await getExportStatus(currentExportTaskId.value)
+      exportStatus.value = status.status
+      exportMessage.value = status.message
+      
+      if (status.status === 'completed' || status.status === 'failed') {
+        clearInterval(pollInterval)
+      }
+    } catch (error) {
+      console.error('查询导出状态失败:', error)
+      clearInterval(pollInterval)
+    }
+  }, 2000)
+}
+
+async function downloadExportedFile() {
+  try {
+    await downloadExportedAudio(currentExportTaskId.value)
+    message.success('文件下载已开始')
+  } catch (error) {
+    console.error('下载失败:', error)
+    message.error('下载失败')
+  }
+}
+
+// 导出项目（兼容接口）
+async function exportCurrentProject() {
+  await exportAudio()
 }
 
 // 更新项目信息
@@ -796,58 +1114,271 @@ function formatConversionData(importData) {
   return conversionRequest
 }
 
+// 自动保存项目到服务器（防抖处理）
+function autoSaveProject() {
+  if (!currentProject.project.id) return
+  
+  // 清除之前的定时器
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  // 设置延迟保存，避免频繁请求
+  autoSaveTimer = setTimeout(async () => {
+    try {
+      // 更新总时长
+      currentProject.project.totalDuration = calculateProjectDuration(currentProject)
+      
+      const result = await saveProject(currentProject.project.id, currentProject)
+      if (result.success) {
+        console.log('项目已自动保存到服务器:', currentProject.project.title)
+        // 同时保存到本地缓存
+        saveCurrentProjectToLocalStorage()
+      }
+    } catch (error) {
+      console.warn('自动保存项目失败:', error)
+    }
+  }, 1000) // 1秒延迟
+}
+
+// 项目持久化
+function saveCurrentProjectToLocalStorage() {
+  if (currentProject.project.id) {
+    localStorage.setItem('sound-edit-current-project-id', currentProject.project.id)
+    localStorage.setItem('sound-edit-current-project-data', JSON.stringify(currentProject))
+    console.log('项目已自动保存到本地缓存:', currentProject.project.title)
+  }
+}
+
+function clearProjectCache() {
+  localStorage.removeItem('sound-edit-current-project-id')
+  localStorage.removeItem('sound-edit-current-project-data')
+  message.info('本地项目缓存已清除')
+}
+
+async function loadProjectFromLocalStorage() {
+  try {
+    const savedProjectId = localStorage.getItem('sound-edit-current-project-id')
+    const savedProjectData = localStorage.getItem('sound-edit-current-project-data')
+    
+    if (savedProjectId && savedProjectData) {
+      // 尝试从服务器加载最新的项目数据
+      try {
+        const result = await loadProject(savedProjectId)
+        if (result.success) {
+          // 正确地更新reactive对象的每个属性，保持响应性
+          Object.assign(currentProject.project, result.data.project)
+          currentProject.tracks.splice(0, currentProject.tracks.length, ...result.data.tracks)
+          currentProject.markers = result.data.markers || []
+          console.log('从服务器恢复项目:', currentProject.project.title)
+          message.success('项目已从服务器恢复')
+          return
+        }
+      } catch (error) {
+        console.warn('从服务器加载项目失败，使用本地缓存:', error)
+      }
+      
+      // 如果服务器加载失败，使用本地缓存
+      try {
+        const localProject = JSON.parse(savedProjectData)
+        Object.assign(currentProject.project, localProject.project)
+        currentProject.tracks.splice(0, currentProject.tracks.length, ...localProject.tracks)
+        currentProject.markers = localProject.markers || []
+        console.log('从本地缓存恢复项目:', currentProject.project.title)
+        message.info('项目已从本地缓存恢复')
+      } catch (parseError) {
+        console.error('解析本地项目数据失败:', parseError)
+        clearProjectCache()
+      }
+    }
+  } catch (error) {
+    console.error('加载本地项目失败:', error)
+  }
+}
+
 // 格式化工具函数
 function formatDuration(seconds) {
   return formatTime(seconds)
 }
 
-// 键盘事件处理
+// 全局键盘事件处理
 function handleKeyDown(event) {
-  if (event.code === 'Space' && !event.target.matches('input, textarea')) {
-    event.preventDefault()
-    togglePlay()
+  // 检查是否在输入框中
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+    return
+  }
+  
+  switch (event.key) {
+    case ' ':
+      // 空格键：播放/暂停
+      if (currentProject.project.id) {
+        togglePlay()
+        event.preventDefault()
+      }
+      break
+    case 'Delete':
+    case 'Backspace':
+      handleDeleteSelectedClips()
+      event.preventDefault()
+      break
+    case 'Escape':
+      clearAllSelections()
+      event.preventDefault()
+      break
+    case '=':
+    case '+':
+      // 加号键：放大
+      if (event.ctrlKey || event.metaKey) {
+        zoomIn()
+        event.preventDefault()
+      }
+      break
+    case '-':
+    case '_':
+      // 减号键：缩小
+      if (event.ctrlKey || event.metaKey) {
+        zoomOut()
+        event.preventDefault()
+      }
+      break
+    case '0':
+      // Ctrl+0：重置缩放
+      if (event.ctrlKey || event.metaKey) {
+        resetZoom()
+        event.preventDefault()
+      }
+      break
   }
 }
 
+function handleGlobalClick(event) {
+  // 如果点击的不是音频片段相关元素和项目信息面板，清除所有选中状态
+  if (!event.target.closest('.audio-clip') && 
+      !event.target.closest('.ant-modal') && 
+      !event.target.closest('.project-panel') &&
+      !event.target.closest('.clip-details')) {
+    clearAllSelections()
+  }
+}
+
+function handleDeleteSelectedClips() {
+  const selectedClips = []
+  
+  // 收集所有选中的音频片段
+  currentProject.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      if (clip.selected) {
+        selectedClips.push({ trackId: track.id, clipId: clip.id, clipName: clip.name })
+      }
+    })
+  })
+  
+  if (selectedClips.length === 0) {
+    message.info('请先选择要删除的音频片段')
+    return
+  }
+  
+  // 显示确认对话框
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除 ${selectedClips.length} 个音频片段吗？`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk() {
+      selectedClips.forEach(({ trackId, clipId }) => {
+        deleteClip(trackId, clipId)
+      })
+      message.success(`已删除 ${selectedClips.length} 个音频片段`)
+    }
+  })
+}
+
+function clearAllSelections() {
+  currentProject.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      if (clip.selected) {
+        clip.selected = false
+      }
+    })
+  })
+}
+
+// 缩放功能（需要配合 TimelineEditor 组件）
+function zoomIn() {
+  // 这个功能需要通过 TimelineEditor 组件实现
+  console.log('放大时间轴')
+}
+
+function zoomOut() {
+  // 这个功能需要通过 TimelineEditor 组件实现
+  console.log('缩小时间轴')
+}
+
+function resetZoom() {
+  // 这个功能需要通过 TimelineEditor 组件实现
+  console.log('重置时间轴缩放')
+}
+
 // ========== 生命周期 ==========
-onMounted(() => {
-  refreshAudioFiles()
+onMounted(async () => {
+  // 初始化音频文件列表
+  await refreshAudioFiles()
+  
+  // 尝试从本地存储恢复项目
+  await loadProjectFromLocalStorage()
+  
+  // 添加全局键盘事件监听
   document.addEventListener('keydown', handleKeyDown)
+  // 添加全局点击事件监听
+  document.addEventListener('click', handleGlobalClick)
 })
 
 onUnmounted(() => {
+  // 清理音频播放
   stopAudioPlayback()
   stopPreviewAudio()
+  
+  // 清理定时器
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+  
+  // 移除全局键盘事件监听
   document.removeEventListener('keydown', handleKeyDown)
+  // 移除全局点击事件监听  
+  document.removeEventListener('click', handleGlobalClick)
 })
 </script>
 
 <style scoped>
 .multitrack-editor {
-  height: 100vh;
   background: #1a1a1a;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   color: #fff;
-  overflow: hidden;
 }
 
 .editor-container {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  background: #1a1a1a;
 }
 
+/* 上半部分：三栏布局 */
 .top-section {
+  height: calc(50% - 8px);
   display: flex;
-  gap: 12px;
-  padding: 12px;
-  height: 300px;
-  min-height: 300px;
-  background: #222;
+  gap: 16px;
+  padding: 16px;
 }
 
 .bottom-section {
   flex: 1;
-  padding: 0 12px 12px;
+  padding: 0 16px 16px;
   overflow: hidden;
 }
 
