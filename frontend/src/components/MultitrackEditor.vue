@@ -4,565 +4,75 @@
     <div class="editor-container">
       <!-- 上半部分：资源库 + 预览 + 项目信息 -->
       <div class="top-section">
-        <!-- 左侧：资源库 -->
-        <div class="resource-panel">
-          <div class="panel-header">
-            <h4>资源库</h4>
-            <a-button size="small" @click="refreshAudioFiles" :icon="h(ReloadOutlined)" title="刷新资源库" />
-          </div>
-          <div class="panel-content">
-            <div class="resource-tabs">
-              <a-tabs v-model:activeKey="activeAudioTab" size="small">
-                <a-tab-pane key="dialogue" tab="对话音">
-                  <div class="audio-list">
-                    <!-- 工具栏 -->
-                    <div class="toolbar-section">
-                      <div class="toolbar-left">
-                        <a-input-search
-                          v-model:value="searchKeyword"
-                          placeholder="搜索对话音..."
-                          size="small"
-                          @search="handleSearch"
-                        />
-                      </div>
-                      <div class="toolbar-right">
-                        <a-upload
-                          :multiple="true"
-                          :show-upload-list="false"
-                          :before-upload="(file) => handleBeforeUpload(file, 'dialogue')"
-                          accept="audio/*"
-                        >
-                          <a-button type="primary" size="small">
-                            <template #icon><UploadOutlined /></template>
-                            上传
-                          </a-button>
-                        </a-upload>
-                        <a-button size="small" @click="showImportDialog = true">
-                          <template #icon><ImportOutlined /></template>
-                          导入
-                        </a-button>
-                      </div>
-                    </div>
-                    
-                    <!-- 音频文件列表 -->
-                    <div class="audio-files">
-                      <a-spin :spinning="loadingAudioFiles">
-                        <div v-if="filteredDialogueFiles.length === 0" class="empty-audio">
-                          <div class="empty-icon">🎤</div>
-                          <div class="empty-text">暂无对话音文件</div>
-                          <div class="empty-desc">点击上传按钮添加对话音文件</div>
-                        </div>
-                        <div v-else>
-                          <div 
-                            class="audio-item" 
-                            v-for="file in filteredDialogueFiles" 
-                            :key="file.file_id"
-                            :draggable="true"
-                            @click="selectAudioFile(file)"
-                            @dblclick="handleAddAudioToProject(file)"
-                            @dragstart="handleDragStart(file, $event)"
-                            @dragend="handleDragEnd"
-                          >
-                            <div class="audio-preview">
-                              <a-button 
-                                size="small" 
-                                type="text" 
-                                @click.stop="playAudioFile(file)"
-                                :icon="isPlayingFile(file.file_id) ? h(PauseCircleOutlined) : h(PlayCircleOutlined)"
-                              />
-                            </div>
-                            <div class="audio-info">
-                              <div class="audio-name" :title="file.original_name || file.filename">
-                                {{ file.original_name || file.filename || '未知文件' }}
-                              </div>
-                              <div class="audio-meta">
-                                <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
-                                <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
-                                <span v-else class="audio-format">WAV</span>
-                              </div>
-                            </div>
-                            <div class="audio-actions">
-                              <a-popconfirm
-                                title="确定要删除这个音频文件吗？"
-                                ok-text="删除"
-                                cancel-text="取消"
-                                @confirm="handleDeleteAudioFile(file)"
-                              >
-                                <a-button 
-                                  size="small" 
-                                  type="text"
-                                  danger
-                                  @click.stop
-                                  :icon="h(DeleteOutlined)"
-                                  title="删除文件"
-                                />
-                              </a-popconfirm>
-                            </div>
-                          </div>
-                        </div>
-                      </a-spin>
-                    </div>
-                  </div>
-                </a-tab-pane>
-                <a-tab-pane key="environment" tab="环境音">
-                  <div class="audio-list">
-                    <!-- 工具栏 -->
-                    <div class="toolbar-section">
-                      <div class="toolbar-left">
-                        <a-input-search
-                          v-model:value="searchKeyword"
-                          placeholder="搜索环境音..."
-                          size="small"
-                          @search="handleSearch"
-                        />
-                      </div>
-                      <div class="toolbar-right">
-                        <a-upload
-                          :multiple="true"
-                          :show-upload-list="false"
-                          :before-upload="(file) => handleBeforeUpload(file, 'environment')"
-                          accept="audio/*"
-                        >
-                          <a-button type="primary" size="small">
-                            <template #icon><UploadOutlined /></template>
-                            上传
-                          </a-button>
-                        </a-upload>
-                        <a-button size="small" @click="showImportDialog = true">
-                          <template #icon><ImportOutlined /></template>
-                          导入
-                        </a-button>
-                      </div>
-                    </div>
-                    
-                    <!-- 音频文件列表 -->
-                    <div class="audio-files">
-                      <a-spin :spinning="loadingAudioFiles">
-                        <div v-if="filteredEnvironmentFiles.length === 0" class="empty-audio">
-                          <div class="empty-icon">🌿</div>
-                          <div class="empty-text">暂无环境音文件</div>
-                          <div class="empty-desc">点击上传按钮添加环境音文件</div>
-                        </div>
-                        <div v-else>
-                          <div 
-                            class="audio-item" 
-                            v-for="file in filteredEnvironmentFiles" 
-                            :key="file.file_id"
-                            :draggable="true"
-                            @click="selectAudioFile(file)"
-                            @dblclick="handleAddAudioToProject(file)"
-                            @dragstart="handleDragStart(file, $event)"
-                            @dragend="handleDragEnd"
-                          >
-                            <div class="audio-preview">
-                              <a-button 
-                                size="small" 
-                                type="text" 
-                                @click.stop="playAudioFile(file)"
-                                :icon="isPlayingFile(file.file_id) ? h(PauseCircleOutlined) : h(PlayCircleOutlined)"
-                              />
-                            </div>
-                            <div class="audio-info">
-                              <div class="audio-name" :title="file.original_name || file.filename">
-                                {{ file.original_name || file.filename || '未知文件' }}
-                              </div>
-                              <div class="audio-meta">
-                                <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
-                                <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
-                                <span v-else class="audio-format">WAV</span>
-                              </div>
-                            </div>
-                            <div class="audio-actions">
-                              <a-popconfirm
-                                title="确定要删除这个音频文件吗？"
-                                ok-text="删除"
-                                cancel-text="取消"
-                                @confirm="handleDeleteAudioFile(file)"
-                              >
-                                <a-button 
-                                  size="small" 
-                                  type="text"
-                                  danger
-                                  @click.stop
-                                  :icon="h(DeleteOutlined)"
-                                  title="删除文件"
-                                />
-                              </a-popconfirm>
-                            </div>
-                          </div>
-                        </div>
-                      </a-spin>
-                    </div>
-                  </div>
-                </a-tab-pane>
-                <a-tab-pane key="theme" tab="主题音">
-                  <div class="audio-list">
-                    <!-- 工具栏 -->
-                    <div class="toolbar-section">
-                      <div class="toolbar-left">
-                        <a-input-search
-                          v-model:value="searchKeyword"
-                          placeholder="搜索主题音..."
-                          size="small"
-                          @search="handleSearch"
-                        />
-                      </div>
-                      <div class="toolbar-right">
-                        <a-upload
-                          :multiple="true"
-                          :show-upload-list="false"
-                          :before-upload="(file) => handleBeforeUpload(file, 'theme')"
-                          accept="audio/*"
-                        >
-                          <a-button type="primary" size="small">
-                            <template #icon><UploadOutlined /></template>
-                            上传
-                          </a-button>
-                        </a-upload>
-                      </div>
-                    </div>
-                    
-                    <!-- 音频文件列表 -->
-                    <div class="audio-files">
-                      <a-spin :spinning="loadingAudioFiles">
-                        <div v-if="filteredThemeFiles.length === 0" class="empty-audio">
-                          <div class="empty-icon">🎼</div>
-                          <div class="empty-text">暂无主题音文件</div>
-                          <div class="empty-desc">点击上传按钮添加主题音文件</div>
-                        </div>
-                        <div v-else>
-                          <div 
-                            class="audio-item" 
-                            v-for="file in filteredThemeFiles" 
-                            :key="file.file_id"
-                            :draggable="true"
-                            @click="selectAudioFile(file)"
-                            @dblclick="handleAddAudioToProject(file)"
-                            @dragstart="handleDragStart(file, $event)"
-                            @dragend="handleDragEnd"
-                          >
-                            <div class="audio-preview">
-                              <a-button 
-                                size="small" 
-                                type="text" 
-                                @click.stop="playAudioFile(file)"
-                                :icon="isPlayingFile(file.file_id) ? h(PauseCircleOutlined) : h(PlayCircleOutlined)"
-                              />
-                            </div>
-                            <div class="audio-info">
-                              <div class="audio-name" :title="file.original_name || file.filename">
-                                {{ file.original_name || file.filename || '未知文件' }}
-                              </div>
-                              <div class="audio-meta">
-                                <span class="audio-duration">{{ formatDuration(file.duration || 0) }}</span>
-                                <span v-if="file.format" class="audio-format">{{ file.format.toUpperCase() }}</span>
-                                <span v-else class="audio-format">WAV</span>
-                              </div>
-                            </div>
-                            <div class="audio-actions">
-                              <a-popconfirm
-                                title="确定要删除这个音频文件吗？"
-                                ok-text="删除"
-                                cancel-text="取消"
-                                @confirm="handleDeleteAudioFile(file)"
-                              >
-                                <a-button 
-                                  size="small" 
-                                  type="text"
-                                  danger
-                                  @click.stop
-                                  :icon="h(DeleteOutlined)"
-                                  title="删除文件"
-                                />
-                              </a-popconfirm>
-                            </div>
-                          </div>
-                        </div>
-                      </a-spin>
-                    </div>
-                  </div>
-                </a-tab-pane>
-              </a-tabs>
-            </div>
-          </div>
-        </div>
+        <!-- 资源库面板 -->
+        <ResourcePanel
+          :audio-files="audioFiles"
+          :loading="loadingAudioFiles"
+          :search-keyword="searchKeyword"
+          :playing-file-id="playingFileId"
+          :active-tab="activeAudioTab"
+          @refresh="refreshAudioFiles"
+          @tab-change="activeAudioTab = $event"
+          @upload="handleBeforeUpload"
+          @search="handleSearch"
+          @select-file="selectAudioFile"
+          @play-file="playAudioFile"
+          @delete-file="handleDeleteAudioFile"
+          @add-to-project="handleAddAudioToProject"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
+        />
 
-        <!-- 中间：合成效果预览 -->
-        <div class="preview-panel">
-          <div class="panel-header">
-            <h4>合成预览</h4>
-          </div>
-          <div class="panel-content">
-            <div class="preview-area">
-              <div class="waveform-display">
-                <!-- 波形预览区域 -->
-                <div class="waveform-container">
-                  <div class="waveform-placeholder">
-                    <div class="waveform-icon">📊</div>
-                    <div class="waveform-text">音频波形预览</div>
-                    <div class="waveform-info">
-                      {{ formatTime(currentTime) }} / {{ formatTime(currentProject.project.totalDuration || 0) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="preview-controls">
-                <a-slider 
-                  v-model:value="currentTime" 
-                  :max="currentProject.project.totalDuration || 1" 
-                  :step="0.1"
-                  :disabled="!currentProject.project.id"
-                  style="flex: 1; margin-right: 12px;"
-                />
-                <a-space size="small">
-                  <a-button size="small" type="primary" @click="togglePlay" :loading="isLoadingPreview" :disabled="!currentProject.project.id">
-                    <template #icon>
-                      <PlayCircleOutlined v-if="!isPlaying && !isLoadingPreview" />
-                      <PauseCircleOutlined v-else-if="isPlaying" />
-                    </template>
-                    {{ isLoadingPreview ? '准备中' : (isPlaying ? '播放' : '预览') }}
-                  </a-button>
-                  <a-button size="small" @click="stopPlayback">
-                    <template #icon><StopOutlined /></template>
-                    停止
-                  </a-button>
-                </a-space>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 预览面板 -->
+        <PreviewPanel
+          :current-time="currentTime"
+          :total-duration="currentProject.project.totalDuration || 0"
+          :is-playing="isPlaying"
+          :is-loading="isLoadingPreview"
+          :has-project="!!currentProject.project.id"
+          @toggle-play="togglePlay"
+          @stop="stopPlayback"
+          @time-change="currentTime = $event"
+        />
 
-        <!-- 右侧：项目信息/音频片段信息 -->
-        <div class="project-panel" @click.stop>
-          <div class="panel-header">
-            <h4>{{ selectedClip ? '音频片段信息' : '项目信息' }}</h4>
-            <a-space size="small" v-if="!selectedClip">
-              <a-button size="small" @click="showCreateProject = true" type="primary">
-                <template #icon><PlusOutlined /></template>
-                新建
-              </a-button>
-              <a-button size="small" @click="showProjectList = true">
-                <template #icon><FolderOpenOutlined /></template>
-                打开
-              </a-button>
-              <a-button size="small" @click="saveCurrentProject" :disabled="!currentProject.project.id">
-                <template #icon><SaveOutlined /></template>
-                保存
-              </a-button>
-              <a-button size="small" @click="exportAudio" :disabled="!currentProject.project.id" :loading="exportLoading" type="primary">
-                <template #icon><ExportOutlined /></template>
-                导出
-              </a-button>
-            </a-space>
-          </div>
-          <div class="panel-content">
-            <!-- 音频片段信息 -->
-            <div v-if="selectedClip" class="clip-details" @click.stop>
-              <div class="project-field">
-                <label>片段名称：</label>
-                <EditableText 
-                  :value="selectedClip.name" 
-                  @change="(newName) => updateSelectedClip({ name: newName })"
-                  placeholder="音频片段名称"
-                />
-              </div>
-              <div class="project-field">
-                <label>音轨类型：</label>
-                <span>{{ getTrackTypeLabel(selectedClip.trackType) }}</span>
-              </div>
-              <div class="project-field">
-                <label>开始时间：</label>
-                <span>{{ formatTime(selectedClip.startTime) }}</span>
-              </div>
-              <div class="project-field">
-                <label>持续时间：</label>
-                <span>{{ formatTime(selectedClip.duration) }}</span>
-              </div>
-              <div class="project-field">
-                <label>音量：</label>
-                <a-slider 
-                  :value="selectedClip.volume * 100" 
-                  :min="0" 
-                  :max="200" 
-                  :step="1"
-                  @change="(value) => updateSelectedClip({ volume: value / 100 })"
-                />
-                <span>{{ Math.round(selectedClip.volume * 100) }}%</span>
-              </div>
-              <div class="project-field">
-                <label>淡入时间：</label>
-                <a-input-number 
-                  :value="selectedClip.fadeIn || 0" 
-                  :min="0" 
-                  :max="selectedClip.duration / 2"
-                  :step="0.1"
-                  @change="(value) => updateSelectedClip({ fadeIn: value })"
-                  addon-after="秒"
-                />
-              </div>
-              <div class="project-field">
-                <label>淡出时间：</label>
-                <a-input-number 
-                  :value="selectedClip.fadeOut || 0" 
-                  :min="0" 
-                  :max="selectedClip.duration / 2"
-                  :step="0.1"
-                  @change="(value) => updateSelectedClip({ fadeOut: value })"
-                  addon-after="秒"
-                />
-              </div>
-              <div class="project-actions">
-                <a-button block @click="clearSelectedClip">
-                  取消选择
-                </a-button>
-              </div>
-            </div>
-            
-            <!-- 项目信息 -->
-            <div v-else-if="currentProject.project.id" class="project-details" @click.stop>
-              <div class="project-field">
-                <label>项目名称：</label>
-                <EditableText 
-                  :value="currentProject.project.title" 
-                  @change="updateProjectTitle"
-                  placeholder="项目标题"
-                />
-              </div>
-              <div class="project-field">
-                <label>项目描述：</label>
-                <EditableText 
-                  :value="currentProject.project.description" 
-                  @change="updateProjectDescription"
-                  placeholder="项目描述"
-                />
-              </div>
-              <div class="project-field">
-                <label>作者：</label>
-                <span>{{ currentProject.project.author }}</span>
-              </div>
-              <div class="project-field">
-                <label>总时长：</label>
-                <span>{{ formatTime(currentProject.project.totalDuration) }}</span>
-              </div>
-              <div class="project-field">
-                <label>采样率：</label>
-                <span>{{ currentProject.project.sampleRate }} Hz</span>
-              </div>
-              <div class="project-field">
-                <label>声道数：</label>
-                <span>{{ currentProject.project.channels }}</span>
-              </div>
-
-            </div>
-            
-            <!-- 空状态 -->
-            <div v-else class="project-empty">
-              <div class="empty-icon">📁</div>
-              <div class="empty-text">暂无项目</div>
-              <div class="empty-desc">请创建或打开一个项目</div>
-            </div>
-          </div>
-        </div>
+        <!-- 项目信息面板 -->
+        <ProjectInfoPanel
+          :project="currentProject.project"
+          :selected-clip="selectedClip"
+          :has-project="!!currentProject.project.id"
+          :export-loading="exportLoading"
+          @create-project="showCreateProject = true"
+          @open-project="showProjectList = true"
+          @save-project="saveCurrentProject"
+          @export-project="exportCurrentProject"
+          @update-project="updateProjectInfo"
+          @update-clip="updateSelectedClip"
+          @clear-selection="clearSelectedClip"
+        />
       </div>
 
       <!-- 下半部分：音轨编辑器 -->
       <div class="bottom-section">
-        <div v-if="currentProject.project.id" class="timeline-container">
-          <!-- 工具栏 - 包含缩放控制 -->
-          <div class="timeline-toolbar">
-            <div class="toolbar-left">
-              <span class="toolbar-title">时间轴</span>
-            </div>
-            <div class="toolbar-right">
-              <!-- 缩放控制 -->
-              <div class="zoom-controls">
-                <span class="zoom-label">缩放:</span>
-                
-                <!-- 缩放滑块 -->
-                <div class="zoom-slider-container">
-                  <a-slider
-                    v-model:value="zoomLevel"
-                    :min="minZoom"
-                    :max="maxZoom"
-                    :step="0.01"
-                    :tooltip-formatter="(value) => `${Math.round(value * 100)}%`"
-                    @change="handleZoomSliderChange"
-                    style="width: 150px; margin: 0 12px;"
-                  />
-                </div>
-                
-                <!-- 缩放显示 -->
-                <div class="zoom-display">
-                  <span class="zoom-percentage">{{ Math.round(zoomLevel * 100) }}%</span>
-                </div>
-                
-                <!-- 当前显示范围 -->
-                <span class="view-range">显示: {{ Math.round(viewDuration) }}s</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 时间轴主体区域 -->
-          <div class="timeline-main">
-            <!-- 时间标尺 -->
-            <div class="timeline-ruler">
-              <!-- 左侧固定区域 -->
-              <div class="ruler-left-space"></div>
-              <!-- 可滚动的时间标记区域 -->
-              <div class="ruler-scroll-container" ref="rulerScrollContainer">
-                <div class="time-markers" :style="{ width: timelineWidth + 'px' }">
-                  <div
-                    v-for="marker in timeMarkers"
-                    :key="marker.time"
-                    class="time-marker"
-                    :style="{ left: marker.time * pixelsPerSecond + 'px' }"
-                  >
-                    <span class="time-label">{{ formatTime(marker.time) }}</span>
-                  </div>
-                  <!-- 播放头 -->
-                  <div 
-                    class="playhead" 
-                    :style="{ left: currentTime * pixelsPerSecond + 'px' }"
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 音轨容器 -->
-            <div class="tracks-scroll-container" ref="tracksScrollContainer" @scroll="handleTimelineScroll">
-              <div class="tracks-wrapper">
-                <!-- 左侧音轨控制面板 -->
-                <div class="tracks-controls">
-                  <div v-for="track in currentProject.tracks" :key="track.id" class="track-control">
-                    <div class="track-color-bar" :style="{ backgroundColor: track.color }"></div>
-                    <div class="track-info">
-                      <span class="track-name">{{ track.name }}</span>
-                      <span class="track-type">{{ track.type }}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- 右侧音轨内容区域 -->
-                <div class="tracks-content" :style="{ width: timelineWidth + 'px' }">
-                  <TrackEditor
-                    v-for="track in currentProject.tracks"
-                    :key="track.id"
-                    :track="track"
-                    :viewDuration="viewDuration"
-                    :pixelsPerSecond="pixelsPerSecond"
-                    :currentTime="currentTime"
-                    :timelineWidth="timelineWidth"
-                    @update-track="updateTrack"
-                    @update-clip="updateClip"
-                    @delete-clip="deleteClip"
-                    @add-clip="addClip"
-                    @select-exclusive="handleExclusiveSelect"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TimelineEditor
+          v-if="currentProject.project.id"
+          ref="timelineEditor"
+          :tracks="currentProject.tracks"
+          :current-time="currentTime"
+          :zoom-level="zoomLevel"
+          :view-duration="viewDuration"
+          :pixels-per-second="pixelsPerSecond"
+          :timeline-width="timelineWidth"
+          :total-duration="currentProject.project.totalDuration || 60"
+          :min-zoom="minZoom"
+          :max-zoom="maxZoom"
+          @zoom-change="handleZoomChange"
+          @timeline-scroll="handleTimelineScroll"
+          @update-track="updateTrack"
+          @update-clip="updateClip"
+          @delete-clip="deleteClip"
+          @add-clip="addClip"
+          @select-exclusive="handleExclusiveSelect"
+        />
 
         <!-- 空状态 -->
         <div v-else class="empty-state">
@@ -573,107 +83,45 @@
       </div>
     </div>
 
-    <!-- 创建项目对话框 -->
-    <a-modal
-      v-model:open="showCreateProject"
-      title="创建新项目"
-      @ok="createNewProject"
-      @cancel="resetCreateForm"
-    >
-      <a-form :model="createForm" layout="vertical">
-        <a-form-item label="项目标题" required>
-          <a-input v-model:value="createForm.title" placeholder="输入项目标题" />
-        </a-form-item>
-        <a-form-item label="项目描述">
-          <a-textarea v-model:value="createForm.description" placeholder="项目描述（可选）" :rows="3" />
-        </a-form-item>
-        <a-form-item label="作者">
-          <a-input v-model:value="createForm.author" placeholder="作者名称" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+    <!-- 对话框组件 -->
+    <ProjectCreateForm
+      :open="showCreateProject"
+      @update:open="showCreateProject = $event"
+      @success="handleProjectCreated"
+    />
 
-    <!-- 项目列表对话框 -->
-    <a-modal
-      v-model:open="showProjectList"
-      title="选择项目"
-      width="800px"
-      :footer="null"
-    >
-      <ProjectList @select="openProject" @delete="handleDeleteProject" />
-    </a-modal>
+    <ProjectList
+      :open="showProjectList"
+      @update:open="showProjectList = $event"
+      @select="handleProjectSelected"
+    />
 
-    <!-- JSON导入对话框 -->
-    <a-modal
-      v-model:open="showImportDialog"
-      title="导入JSON格式"
-      width="800px"
-      @ok="handleImportJson"
-      @cancel="resetImportForm"
-    >
-      <ImportJsonForm v-model="importForm" />
-    </a-modal>
-
-    <!-- 导出进度对话框 -->
-    <a-modal
-      v-model:open="showExportProgress"
-      title="导出进度"
-      :footer="exportStatus === 'completed' ? null : undefined"
-      :closable="exportStatus !== 'processing'"
-      :maskClosable="false"
-    >
-      <div class="export-progress">
-        <a-result
-          v-if="exportStatus === 'completed'"
-          status="success"
-          title="导出完成"
-          sub-title="音频文件已成功生成"
-        >
-          <template #extra>
-            <a-button type="primary" @click="downloadExportedFile">下载文件</a-button>
-            <a-button @click="showExportProgress = false">关闭</a-button>
-          </template>
-        </a-result>
-        <a-result
-          v-else-if="exportStatus === 'failed'"
-          status="error"
-          title="导出失败"
-          :sub-title="exportMessage"
-        >
-          <template #extra>
-            <a-button @click="showExportProgress = false">关闭</a-button>
-          </template>
-        </a-result>
-        <div v-else>
-          <a-spin size="large" />
-          <p style="margin-top: 16px; text-align: center;">{{ exportMessage || '正在处理音频...' }}</p>
-        </div>
-      </div>
-    </a-modal>
-
-
+    <ImportJsonForm
+      :open="showImportDialog"
+      @update:open="showImportDialog = $event"
+      @success="handleImportSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted, h } from 'vue'
-import { message, Modal } from 'ant-design-vue'
-import {
-  PlusOutlined,
-  FolderOpenOutlined,
-  SaveOutlined,
-  ImportOutlined,
-  ExportOutlined,
-  PlayCircleOutlined,
-  PauseCircleOutlined,
-  StopOutlined,
-  SoundOutlined,
-  UploadOutlined,
-  DeleteOutlined,
-  ReloadOutlined
-} from '@ant-design/icons-vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { message } from 'ant-design-vue'
+import { h } from 'vue'
 
-import {
+// 导入子组件
+import ResourcePanel from './panels/ResourcePanel.vue'
+import PreviewPanel from './panels/PreviewPanel.vue'
+import ProjectInfoPanel from './panels/ProjectInfoPanel.vue'
+import TimelineEditor from './panels/TimelineEditor.vue'
+import ProjectCreateForm from './dialogs/ProjectCreateForm.vue'
+import ProjectList from './dialogs/ProjectList.vue'
+import ImportJsonForm from './dialogs/ImportJsonForm.vue'
+import EditableText from './common/EditableText.vue'
+
+// 导入API服务
+import { uploadMultipleAudioFiles, uploadAudioFile, listAudioFiles, deleteAudioFile } from '../api/audioFiles'
+import { 
   createProject,
   loadProject,
   saveProject,
@@ -693,42 +141,25 @@ import {
   generateId
 } from '../api/multitrackProject'
 
-import {
-  uploadMultipleAudioFiles,
-  listAudioFiles,
-  deleteAudioFile
-} from '../api/audioFiles'
+// ========== 响应式数据 ==========
+// 音频文件相关
+const audioFiles = ref([])
+const loadingAudioFiles = ref(false)
+const searchKeyword = ref('')
+const activeAudioTab = ref('dialogue')
+const playingFileId = ref(null)
 
-import EditableText from './common/EditableText.vue'
-import TrackEditor from './tracks/TrackEditor.vue'
-import ProjectList from './project/ProjectList.vue'
-import ImportJsonForm from './import/ImportJsonForm.vue'
-
-
-// 响应式数据
-const currentProject = ref(createEmptyProject())
-const showCreateProject = ref(false)
-const showProjectList = ref(false)
-const showImportDialog = ref(false)
-const showExportProgress = ref(false)
-
-// 音频分类相关
-const activeAudioTab = ref('dialogue') // 当前选中的音频标签页
-
+// 项目相关
+const currentProject = reactive(createEmptyProject())
 
 // 播放控制
-const isPlaying = ref(false)
 const currentTime = ref(0)
+const isPlaying = ref(false)
 const isLoadingPreview = ref(false)
-let playInterval = null
-let previewAudioElement = null  // 专门用于预览播放
-let audioFileElement = null     // 专门用于音频文件播放
-let currentPreviewFile = null
-let currentAudioId = 0          // 当前音频元素的唯一标识符
 
-// 计算当前选中的音频片段
+// 选择状态 
 const selectedClip = computed(() => {
-  for (const track of currentProject.value.tracks) {
+  for (const track of currentProject.tracks) {
     for (const clip of track.clips) {
       if (clip.selected) {
         return { ...clip, trackType: track.type }
@@ -738,225 +169,379 @@ const selectedClip = computed(() => {
   return null
 })
 
-// 视图控制
-const baseViewDuration = ref(60) // 基础显示时间范围（秒）
-const zoomLevel = ref(1) // 缩放级别，1为默认，2为放大2倍，0.5为缩小50%
-const basePixelsPerSecond = 50 // 基础像素比例（每秒50像素）
-const pixelsPerSecond = computed(() => basePixelsPerSecond * zoomLevel.value) // 每秒的像素数
+// 时间轴相关
+const zoomLevel = ref(1)
+const viewDuration = computed(() => 60 / zoomLevel.value)
+const pixelsPerSecond = computed(() => 50 * zoomLevel.value)
+const timelineWidth = computed(() => Math.max(3000, (currentProject.project.totalDuration || 60) * pixelsPerSecond.value))
+const minZoom = ref(0.25)
+const maxZoom = ref(8)
 
-// 时间轴滚动相关
-const rulerScrollContainer = ref(null)
-const tracksScrollContainer = ref(null)
-
-// 当前视图显示的时间范围（会根据缩放级别调整）
-const viewDuration = computed(() => {
-  // 缩放级别越大，显示的时间范围越小（看得更细致）
-  return Math.max(10, baseViewDuration.value / zoomLevel.value)
-})
-
-// 时间轴总宽度计算
-const timelineWidth = computed(() => {
-  const totalDuration = Math.max(currentProject.value.project.totalDuration || 60, baseViewDuration.value)
-  return totalDuration * pixelsPerSecond.value
-})
-
-// 缩放控制
-const minZoom = 0.25 // 最小缩放 25%（可查看更长时间）
-const maxZoom = 8    // 最大缩放 800%（精细编辑）
-const zoomSteps = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8] // 预设缩放级别
-
-// 时间标记
-const timeMarkers = computed(() => {
-  const markers = []
-  const totalDuration = Math.max(currentProject.value.project.totalDuration || 60, baseViewDuration.value)
-  
-  // 根据缩放级别动态调整时间刻度间隔
-  let step
-  if (zoomLevel.value >= 4) {
-    step = 0.5  // 高度放大时显示0.5秒间隔
-  } else if (zoomLevel.value >= 2) {
-    step = 1    // 中度放大时显示1秒间隔
-  } else if (zoomLevel.value >= 1) {
-    step = 5    // 默认显示5秒间隔
-  } else if (zoomLevel.value >= 0.5) {
-    step = 10   // 缩小时显示10秒间隔
-  } else {
-    step = 30   // 高度缩小时显示30秒间隔
-  }
-  
-  for (let time = 0; time <= totalDuration; time += step) {
-    markers.push({ time })
-  }
-  return markers
-})
-
-// 表单数据
-const createForm = reactive({
-  title: '',
-  description: '',
-  author: 'AI-Sound'
-})
-
-const importForm = ref({})
-
-// 导出状态
+// 对话框显示状态
+const showCreateProject = ref(false)
+const showProjectList = ref(false)
+const showImportDialog = ref(false)
 const exportLoading = ref(false)
-const exportStatus = ref('')
-const exportMessage = ref('')
-const currentExportTaskId = ref('')
 
-// 音频文件管理
-const audioFiles = ref([])
-const loadingAudioFiles = ref(false)
-const searchKeyword = ref('')
-const selectedAudioFile = ref(null)
-const playingFileId = ref(null)
+// 音频播放相关
+let currentAudio = null
+let currentAudioId = null
 
 // 拖拽状态
 const draggedAudioFile = ref(null)
 const isDragging = ref(false)
 
-// 计算属性：过滤后的音频文件
-const filteredAudioFiles = computed(() => {
-  if (!searchKeyword.value) return audioFiles.value
-  
-  const keyword = searchKeyword.value.toLowerCase()
-  return audioFiles.value.filter(file => 
-    (file.original_name || file.filename).toLowerCase().includes(keyword)
-  )
-})
+// ========== 计算属性 ==========
+const filteredDialogueFiles = computed(() => 
+  filterFilesByKeyword(audioFiles.value.filter(file => file.category === 'dialogue' || !file.category))
+)
 
-// 分类过滤的音频文件
-const filteredDialogueFiles = computed(() => {
-  const files = audioFiles.value.filter(file => file.category === 'dialogue' || !file.category) // 默认为对话音
+const filteredEnvironmentFiles = computed(() => 
+  filterFilesByKeyword(audioFiles.value.filter(file => file.category === 'environment'))
+)
+
+const filteredThemeFiles = computed(() => 
+  filterFilesByKeyword(audioFiles.value.filter(file => file.category === 'theme'))
+)
+
+// ========== 方法定义 ==========
+
+// 根据关键词过滤文件
+function filterFilesByKeyword(files) {
   if (!searchKeyword.value) return files
   
   const keyword = searchKeyword.value.toLowerCase()
   return files.filter(file => 
     (file.original_name || file.filename).toLowerCase().includes(keyword)
   )
-})
+}
 
-const filteredEnvironmentFiles = computed(() => {
-  const files = audioFiles.value.filter(file => file.category === 'environment')
-  if (!searchKeyword.value) return files
-  
-  const keyword = searchKeyword.value.toLowerCase()
-  return files.filter(file => 
-    (file.original_name || file.filename).toLowerCase().includes(keyword)
-  )
-})
-
-const filteredThemeFiles = computed(() => {
-  const files = audioFiles.value.filter(file => file.category === 'theme')
-  if (!searchKeyword.value) return files
-  
-  const keyword = searchKeyword.value.toLowerCase()
-  return files.filter(file => 
-    (file.original_name || file.filename).toLowerCase().includes(keyword)
-  )
-})
-
-// 方法定义
-
-// 项目管理
-async function createNewProject() {
-  if (!createForm.title.trim()) {
-    message.error('请输入项目标题')
-    return
-  }
-
+// 音频文件管理
+async function refreshAudioFiles() {
+  loadingAudioFiles.value = true
   try {
-    const newProject = createEmptyProject(createForm.title)
-    newProject.project.description = createForm.description
-    newProject.project.author = createForm.author
-
-    const result = await createProject(newProject)
-    if (result.success) {
-      currentProject.value = result.data
-      showCreateProject.value = false
-      resetCreateForm()
-      updateViewDuration()
-      // 保存到本地存储
-      saveCurrentProjectToLocalStorage()
-      message.success('项目创建成功')
+         const response = await listAudioFiles()
+    if (response.success) {
+      audioFiles.value = response.data
+    } else {
+      message.error('获取音频文件列表失败')
     }
   } catch (error) {
-    console.error('创建项目失败:', error)
-    message.error('创建项目失败')
+    console.error('获取音频文件失败:', error)
+    message.error('获取音频文件失败')
+  } finally {
+    loadingAudioFiles.value = false
   }
 }
 
-function resetCreateForm() {
-  createForm.title = ''
-  createForm.description = ''
-  createForm.author = 'AI-Sound'
+// 搜索处理
+function handleSearch(keyword) {
+  searchKeyword.value = keyword
 }
 
-async function openProject(projectId) {
+// 文件上传
+async function handleBeforeUpload(file, category) {
   try {
-    const result = await loadProject(projectId)
-    if (result.success) {
-      currentProject.value = result.data
-      showProjectList.value = false
-      updateViewDuration()
-      // 保存到本地存储
-      saveCurrentProjectToLocalStorage()
-      message.success('项目加载成功')
+    const response = await uploadAudioFile(file, category)
+    if (response.success) {
+      message.success('文件上传成功')
+      refreshAudioFiles()
+    } else {
+      message.error('文件上传失败')
     }
   } catch (error) {
-    console.error('加载项目失败:', error)
-    message.error('加载项目失败')
+    console.error('文件上传失败:', error)
+    message.error('文件上传失败')
+  }
+  return false
+}
+
+// 文件选择
+function selectAudioFile(file) {
+  console.log('选择音频文件:', file)
+}
+
+// 文件播放
+function playAudioFile(file) {
+  if (isPlayingFile(file.file_id)) {
+    stopAudioPlayback()
+  } else {
+    playFileAudio(file)
   }
 }
 
-async function saveCurrentProject() {
-  if (!currentProject.value.project.id) return
+function isPlayingFile(fileId) {
+  return playingFileId.value === fileId
+}
 
+async function playFileAudio(file) {
   try {
-    // 更新总时长
-    currentProject.value.project.totalDuration = calculateProjectDuration(currentProject.value)
+    stopAudioPlayback()
     
-    const result = await saveProject(currentProject.value.project.id, currentProject.value)
-    if (result.success) {
-      message.success('项目保存成功')
-    }
+    playingFileId.value = file.file_id
+    
+    // 创建音频元素
+    currentAudio = new Audio()
+    currentAudioId = Date.now().toString()
+    currentAudio.audioId = currentAudioId
+    
+    // 设置音频源
+    const fileUrl = `/api/v1/audio-files/${file.file_id}/file`
+    currentAudio.src = fileUrl
+    currentAudio.crossOrigin = 'anonymous'
+    
+    // 事件监听器
+    const checkAudioId = (e) => e.target.audioId === currentAudioId
+    
+    currentAudio.addEventListener('ended', (e) => {
+      if (!checkAudioId(e)) return
+      stopAudioPlayback()
+    })
+    
+    currentAudio.addEventListener('error', (e) => {
+      if (!checkAudioId(e)) return
+      console.error('音频播放错误:', e)
+      stopAudioPlayback()
+      message.error('音频播放失败')
+    })
+    
+    await currentAudio.play()
   } catch (error) {
-    console.error('保存项目失败:', error)
-    message.error('保存项目失败')
+    console.error('播放音频失败:', error)
+    stopAudioPlayback()
+    message.error('播放音频失败')
   }
 }
 
-async function handleDeleteProject(projectId) {
+function stopAudioPlayback() {
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+    currentAudio.src = ''
+    currentAudio = null
+  }
+  currentAudioId = null
+  playingFileId.value = null
+}
+
+// 文件删除
+async function handleDeleteAudioFile(file) {
   try {
-    const result = await deleteProject(projectId)
-    if (result.success) {
-      message.success('项目删除成功')
-      // 如果删除的是当前项目，重置编辑器
-      if (currentProject.value.project.id === projectId) {
-        currentProject.value = createEmptyProject()
-        // 清除本地缓存
-        clearProjectCache()
+    const response = await deleteAudioFile(file.file_id)
+    if (response.success) {
+      message.success('文件删除成功')
+      refreshAudioFiles()
+    } else {
+      message.error('文件删除失败')
+    }
+  } catch (error) {
+    console.error('文件删除失败:', error)
+    message.error('文件删除失败')
+  }
+}
+
+// 添加到项目
+function handleAddAudioToProject(file) {
+  console.log('添加音频到项目:', file)
+  // TODO: 实现添加到项目的逻辑
+}
+
+// 拖拽处理
+function handleDragStart(file, event) {
+  draggedAudioFile.value = file
+  isDragging.value = true
+  
+  // 设置拖拽数据
+  event.dataTransfer.setData('application/json', JSON.stringify({
+    type: 'audio-file',
+    file: file
+  }))
+  
+  // 设置拖拽效果
+  event.dataTransfer.effectAllowed = 'copy'
+  
+  // 添加拖拽样式
+  event.target.classList.add('dragging')
+  
+  console.log('开始拖拽音频文件:', file.original_name || file.filename)
+}
+
+function handleDragEnd(event) {
+  isDragging.value = false
+  draggedAudioFile.value = null
+  
+  // 移除拖拽样式
+  event.target.classList.remove('dragging')
+  
+  console.log('拖拽结束')
+}
+
+// 预览播放控制
+async function togglePlay() {
+  if (isPlaying.value) {
+    await pausePreview()
+  } else {
+    await playPreview()
+  }
+}
+
+async function playPreview() {
+  if (!currentProject.project.id) return
+  
+  try {
+    isLoadingPreview.value = true
+    
+         const response = await generatePreviewAudio(currentProject.project.id, currentTime.value, 60)
+    if (response.success) {
+      // 播放预览文件
+      await playPreviewAudio(response.data.preview_file)
+    } else {
+      message.error('生成预览失败')
+    }
+  } catch (error) {
+    console.error('播放预览失败:', error)
+    message.error('播放预览失败')
+  } finally {
+    isLoadingPreview.value = false
+  }
+}
+
+async function playPreviewAudio(previewFile) {
+  try {
+    stopPreviewAudio()
+    
+    currentAudio = new Audio()
+    currentAudioId = Date.now().toString()
+    currentAudio.audioId = currentAudioId
+    
+    currentAudio.src = `/api/v1/preview/${previewFile}`
+    
+    const checkAudioId = (e) => e.target.audioId === currentAudioId
+    
+    currentAudio.addEventListener('canplay', (e) => {
+      if (!checkAudioId(e)) return
+      isLoadingPreview.value = false
+    })
+    
+    currentAudio.addEventListener('timeupdate', (e) => {
+      if (!checkAudioId(e)) return
+      currentTime.value = e.target.currentTime
+    })
+    
+    currentAudio.addEventListener('ended', (e) => {
+      if (!checkAudioId(e)) return
+      stopPlayback()
+    })
+    
+    currentAudio.addEventListener('error', (e) => {
+      if (!checkAudioId(e)) return
+      console.error('预览播放错误:', e)
+      stopPlayback()
+      message.error('预览播放失败')
+    })
+    
+    await currentAudio.play()
+    isPlaying.value = true
+  } catch (error) {
+    console.error('播放预览音频失败:', error)
+    isLoadingPreview.value = false
+    message.error('播放预览失败')
+  }
+}
+
+async function pausePreview() {
+  if (currentAudio) {
+    currentAudio.pause()
+    isPlaying.value = false
+  }
+}
+
+async function stopPlayback() {
+  stopPreviewAudio()
+  currentTime.value = 0
+  
+  // 删除预览文件
+  if (currentAudio?.src) {
+    const previewFile = currentAudio.src.split('/').pop()
+    if (previewFile.startsWith('preview_')) {
+      try {
+        await deletePreviewFile(previewFile)
+      } catch (error) {
+        console.error('删除预览文件失败:', error)
       }
     }
-  } catch (error) {
-    console.error('删除项目失败:', error)
-    message.error('删除项目失败')
   }
 }
 
-// 项目信息编辑
+function stopPreviewAudio() {
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+    currentAudio.src = ''
+    currentAudio = null
+  }
+  currentAudioId = null
+  isPlaying.value = false
+  isLoadingPreview.value = false
+}
+
+// 项目管理
+function handleUpdateProject(updates) {
+  Object.assign(currentProject.project, updates)
+}
+
 function updateProjectTitle(newTitle) {
-  currentProject.value.project.title = newTitle
+  currentProject.project.title = newTitle
 }
 
 function updateProjectDescription(newDescription) {
-  currentProject.value.project.description = newDescription
+  currentProject.project.description = newDescription
 }
 
-// 音轨编辑
+
+
+
+
+// 片段管理  
+function updateSelectedClip(updates) {
+  const clip = selectedClip.value
+  if (!clip) return
+  
+  // 在所有音轨中找到对应的片段并更新
+  for (const track of currentProject.tracks) {
+    const targetClip = track.clips.find(c => c.id === clip.id)
+    if (targetClip) {
+      Object.assign(targetClip, updates)
+      updateProjectDuration()
+      autoSaveProject()
+      break
+    }
+  }
+}
+
+
+
+function getTrackTypeLabel(type) {
+  const labels = {
+    dialogue: '角色对话',
+    environment: '环境音效',
+    background: '背景音乐'
+  }
+  return labels[type] || type
+}
+
+// 时间轴控制
+function handleZoomChange(newZoom) {
+  zoomLevel.value = newZoom
+}
+
+function handleTimelineScroll(scrollLeft) {
+  // 同步时间轴滚动
+}
+
+// 音轨和片段管理
 function updateTrack(trackId, updates) {
-  const track = currentProject.value.tracks.find(t => t.id === trackId)
+  const track = currentProject.tracks.find(t => t.id === trackId)
   if (track) {
     Object.assign(track, updates)
     updateProjectDuration()
@@ -964,33 +549,31 @@ function updateTrack(trackId, updates) {
 }
 
 function updateClip(trackId, clipId, updates) {
-  const track = currentProject.value.tracks.find(t => t.id === trackId)
+  const track = currentProject.tracks.find(t => t.id === trackId)
   if (track) {
     const clip = track.clips.find(c => c.id === clipId)
     if (clip) {
       Object.assign(clip, updates)
       updateProjectDuration()
-      // 自动保存项目
       autoSaveProject()
     }
   }
 }
 
 function deleteClip(trackId, clipId) {
-  const track = currentProject.value.tracks.find(t => t.id === trackId)
+  const track = currentProject.tracks.find(t => t.id === trackId)
   if (track) {
     const index = track.clips.findIndex(c => c.id === clipId)
     if (index !== -1) {
       track.clips.splice(index, 1)
       updateProjectDuration()
-      // 自动保存项目
       autoSaveProject()
     }
   }
 }
 
 function addClip(trackId, clipData) {
-  const track = currentProject.value.tracks.find(t => t.id === trackId)
+  const track = currentProject.tracks.find(t => t.id === trackId)
   if (track) {
     const newClip = {
       id: generateId('clip'),
@@ -1009,62 +592,187 @@ function addClip(trackId, clipData) {
     }
     track.clips.push(newClip)
     updateProjectDuration()
-    // 自动保存项目
     autoSaveProject()
   }
 }
 
 function updateProjectDuration() {
-  currentProject.value.project.totalDuration = calculateProjectDuration(currentProject.value)
+  currentProject.project.totalDuration = calculateProjectDuration(currentProject)
 }
 
-function updateViewDuration() {
-  const projectDuration = currentProject.value.project.totalDuration
-  if (projectDuration > 0) {
-    baseViewDuration.value = Math.max(60, Math.ceil(projectDuration / 10) * 10)
+// 自动保存项目到服务器（防抖处理）
+let autoSaveTimer = null
+function autoSaveProject() {
+  const projectId = currentProject.project?.id
+  
+  // 确保项目ID是有效的字符串
+  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+    console.log('跳过自动保存：项目ID无效', projectId)
+    return
+  }
+  
+  // 清除之前的定时器
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+  }
+
+  // 设置延迟保存，避免频繁请求
+  autoSaveTimer = setTimeout(async () => {
+    try {
+      console.log('正在自动保存项目，ID:', projectId)
+      const result = await saveProject(projectId, currentProject)
+      if (result.success) {
+        console.log('项目已自动保存到服务器:', currentProject.project.title)
+      } else {
+        console.warn('自动保存失败:', result.message)
+      }
+    } catch (error) {
+      console.warn('自动保存项目失败:', error)
+      // 如果是422错误，说明项目可能还没有创建，或者ID有问题
+      if (error.response?.status === 422) {
+        console.log('项目可能需要先保存到服务器才能自动保存')
+      }
+    }
+  }, 1000) // 1秒延迟
+}
+
+function handleExclusiveSelect(trackId, clipId) {
+  // 清除所有音频片段的选中状态
+  currentProject.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      clip.selected = false
+    })
+  })
+  
+  // 选中指定的音频片段
+  const track = currentProject.tracks.find(t => t.id === trackId)
+  if (track) {
+    const clip = track.clips.find(c => c.id === clipId)
+    if (clip) {
+      clip.selected = true
+    }
   }
 }
 
-// 缩放控制方法
-function resetZoom() {
-  zoomLevel.value = 1
-  console.log('时间轴缩放重置到: 100%')
-  message.success('时间轴缩放重置到: 100%')
+function clearSelectedClip() {
+  currentProject.tracks.forEach(track => {
+    track.clips.forEach(clip => {
+      clip.selected = false
+    })
+  })
 }
 
-// 缩放滑块变化处理
-function handleZoomSliderChange(value) {
-  // 滑块变化时不显示消息，减少干扰
-  console.log(`时间轴缩放滑块变化: ${Math.round(value * 100)}%`)
-}
+// 对话框事件处理
+async function handleProjectCreated(projectData) {
+  try {
+    const newProject = createEmptyProject(projectData.title)
+    newProject.project.description = projectData.description
+    newProject.project.author = projectData.author
 
-// 时间轴滚动同步
-function handleTimelineScroll(event) {
-  const scrollLeft = event.target.scrollLeft
-  if (rulerScrollContainer.value) {
-    rulerScrollContainer.value.scrollLeft = scrollLeft
+    const result = await createProject(newProject)
+    if (result.success) {
+      Object.assign(currentProject, result.data)
+      message.success('项目创建成功')
+    }
+  } catch (error) {
+    console.error('创建项目失败:', error)
+    message.error('创建项目失败')
   }
 }
 
-// JSON导入
-async function handleImportJson() {
+async function handleProjectSelected(projectId) {
+  try {
+    const result = await loadProject(projectId)
+    if (result.success) {
+      Object.assign(currentProject, result.data)
+      message.success('项目加载成功')
+    }
+  } catch (error) {
+    console.error('加载项目失败:', error)
+    message.error('加载项目失败')
+  }
+}
+
+async function handleImportSuccess(importData) {
   try {
     // 格式化转换请求数据
-    const conversionData = formatConversionData(importForm.value)
+    const conversionData = formatConversionData(importData)
     
     const result = await convertToStandardFormat(conversionData)
     if (result.success) {
-      currentProject.value = result.data
-      showImportDialog.value = false
-      updateViewDuration()
-      // 保存到本地存储
-      saveCurrentProjectToLocalStorage()
+      Object.assign(currentProject, result.data)
       message.success('JSON导入成功')
     }
   } catch (error) {
     console.error('JSON导入失败:', error)
     message.error('JSON导入失败: ' + (error.response?.data?.detail || error.message))
   }
+}
+
+// 手动保存项目
+async function saveCurrentProject() {
+  const projectId = currentProject.project?.id
+  
+  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+    message.error('无效的项目，请先创建项目')
+    return
+  }
+
+  try {
+    // 更新总时长
+    currentProject.project.totalDuration = calculateProjectDuration(currentProject)
+    
+    const result = await saveProject(projectId, currentProject)
+    if (result.success) {
+      message.success('项目保存成功')
+    } else {
+      message.error('项目保存失败: ' + (result.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('保存项目失败:', error)
+    if (error.response?.status === 422) {
+      message.error('项目数据格式错误，请检查项目配置')
+    } else {
+      message.error('保存项目失败: ' + (error.response?.data?.detail || error.message))
+    }
+  }
+}
+
+// 导出项目
+async function exportCurrentProject() {
+  const projectId = currentProject.project?.id
+  
+  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+    message.error('无效的项目，请先创建并保存项目')
+    return
+  }
+
+  try {
+    exportLoading.value = true
+    
+    const result = await exportProject(projectId)
+    if (result.success) {
+      message.success('项目导出完成，请查看下载文件')
+      // 这里可以触发下载或显示下载链接
+      if (result.downloadUrl) {
+        window.open(result.downloadUrl, '_blank')
+      }
+    } else {
+      message.error('项目导出失败: ' + (result.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('导出项目失败:', error)
+    message.error('导出项目失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+// 更新项目信息
+function updateProjectInfo(updates) {
+  Object.assign(currentProject.project, updates)
+  // 触发自动保存
+  autoSaveProject()
 }
 
 // 格式化转换数据
@@ -1088,1558 +796,72 @@ function formatConversionData(importData) {
   return conversionRequest
 }
 
-function resetImportForm() {
-  importForm.value = {}
+// 格式化工具函数
+function formatDuration(seconds) {
+  return formatTime(seconds)
 }
 
-// 项目验证
-async function validateCurrentProject() {
-  if (!currentProject.value.project.id) return
-
-  try {
-    const result = await validateProject(currentProject.value.project.id)
-    
-    if (result.valid) {
-      message.success('项目验证通过')
-    } else {
-      const errorMsg = result.errors.join(', ')
-      const warningMsg = result.warnings.join(', ')
-      message.error(`验证失败: ${errorMsg}${warningMsg ? ` 警告: ${warningMsg}` : ''}`)
-    }
-  } catch (error) {
-    console.error('项目验证失败:', error)
-    message.error('项目验证失败')
-  }
-}
-
-// 音频导出
-async function exportAudio() {
-  if (!currentProject.value.project.id) return
-
-  try {
-    exportLoading.value = true
-    const result = await exportProject(currentProject.value.project.id)
-    
-    if (result.success) {
-      currentExportTaskId.value = result.export_task_id
-      exportStatus.value = 'processing'
-      exportMessage.value = result.message
-      showExportProgress.value = true
-      
-      // 开始轮询导出状态
-      startExportPolling()
-    }
-  } catch (error) {
-    console.error('导出失败:', error)
-    message.error('导出失败')
-  } finally {
-    exportLoading.value = false
-  }
-}
-
-function startExportPolling() {
-  const pollInterval = setInterval(async () => {
-    try {
-      const status = await getExportStatus(currentExportTaskId.value)
-      exportStatus.value = status.status
-      exportMessage.value = status.message
-      
-      if (status.status === 'completed' || status.status === 'failed') {
-        clearInterval(pollInterval)
-      }
-    } catch (error) {
-      console.error('查询导出状态失败:', error)
-      clearInterval(pollInterval)
-    }
-  }, 2000)
-}
-
-async function downloadExportedFile() {
-  try {
-    await downloadExportedAudio(currentExportTaskId.value)
-    message.success('文件下载已开始')
-  } catch (error) {
-    console.error('下载失败:', error)
-    message.error('下载失败')
-  }
-}
-
-// 播放控制
-async function togglePlay() {
-  // 如果正在加载，不处理
-  if (isLoadingPreview.value) {
-    console.log('正在加载预览，忽略播放切换')
-    return
-  }
-  
-  if (isPlaying.value) {
-    pausePlayback()
-  } else {
-    // 重新开始播放（每次都生成新的预览音频）
-    await startPlayback()
-  }
-}
-
-async function startPlayback() {
-  try {
-    // 如果已在加载中，避免重复请求
-    if (isLoadingPreview.value) {
-      console.log('预览音频正在加载中，跳过重复请求')
-      return
-    }
-    
-    isLoadingPreview.value = true
-    
-    // 检查是否有项目
-    if (!currentProject.value.project.id) {
-      message.warning('请先创建或加载项目')
-      isLoadingPreview.value = false
-      return
-    }
-    
-    // 计算预览时长
-    const totalDuration = currentProject.value.project.totalDuration || 60  // 默认60秒
-    const remainingDuration = totalDuration - currentTime.value
-    const previewDuration = Math.max(1.0, remainingDuration)  // 至少1秒，不设上限
-    
-    console.log('预览播放参数:', {
-      projectId: currentProject.value.project.id,
-      currentTime: currentTime.value,
-      totalDuration,
-      previewDuration
-    })
-    
-    // 生成预览音频
-    const previewResult = await generatePreviewAudio(
-      currentProject.value.project.id,
-      currentTime.value,
-      previewDuration
-    )
-    
-    if (!previewResult.success) {
-      message.error('生成预览音频失败: ' + (previewResult.message || '未知错误'))
-      isLoadingPreview.value = false
-      return
-    }
-    
-    console.log('预览音频生成成功:', previewResult)
-    
-    // 停止当前播放并清理旧的音频元素
-    if (previewAudioElement) {
-      previewAudioElement.pause()
-      previewAudioElement.src = ''
-      previewAudioElement = null
-    }
-    
-    // 创建新的音频元素
-    currentAudioId++  // 增加音频ID
-    const audioId = currentAudioId
-    currentPreviewFile = previewResult.data.preview_file
-    const audioUrl = getPreviewAudioUrl(currentPreviewFile)
-    
-    console.log('创建预览音频元素:', {
-      audioId: audioId,
-      previewFile: currentPreviewFile,
-      audioUrl: audioUrl
-    })
-    
-    previewAudioElement = new Audio()
-    previewAudioElement.audioId = audioId  // 为音频元素分配ID
-    previewAudioElement.crossOrigin = 'anonymous'
-    previewAudioElement.preload = 'auto'
-    
-    // 设置音频事件监听
-    previewAudioElement.addEventListener('loadstart', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      console.log('预览音频开始加载')
-    })
-    
-    previewAudioElement.addEventListener('loadeddata', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      console.log('预览音频数据加载完成')
-    })
-    
-    previewAudioElement.addEventListener('loadedmetadata', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      console.log('预览音频元数据加载完成')
-    })
-    
-    previewAudioElement.addEventListener('suspend', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      console.log('预览音频加载暂停')
-    })
-    
-    previewAudioElement.addEventListener('stalled', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      console.log('预览音频加载停滞')
-      // 如果加载停滞，重置状态
-      if (isLoadingPreview.value) {
-        isLoadingPreview.value = false
-        message.warning('音频加载停滞，请重试')
-      }
-    })
-    
-    previewAudioElement.addEventListener('canplay', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      if (!previewAudioElement) return
-      console.log('预览音频可以播放')
-      
-      // 重置加载状态
-      isLoadingPreview.value = false
-      isPlaying.value = true
-      
-      // 尝试播放音频
-      const playPromise = previewAudioElement.play()
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          console.log('预览音频播放成功')
-          // 开始更新播放时间
-          const startTime = currentTime.value  // 记录播放开始时的项目时间
-          playInterval = setInterval(() => {
-            if (previewAudioElement && !previewAudioElement.paused) {
-              // 计算项目中的绝对时间：开始时间 + 音频播放时间
-              const newTime = startTime + previewAudioElement.currentTime
-              const projectDuration = currentProject.value.project.totalDuration || 0
-              
-              // 检查是否超过项目总时长
-              if (newTime >= projectDuration && projectDuration > 0) {
-                console.log('播放时间到达项目结尾，自动停止播放')
-                stopPlayback()
-                return
-              }
-              
-              currentTime.value = newTime
-            }
-          }, 100)
-        }).catch(error => {
-          console.error('预览音频播放失败:', error)
-          
-          if (error.name === 'NotAllowedError') {
-            message.warning('浏览器需要用户交互才能播放音频，请再次点击预览按钮')
-          } else {
-            message.error('音频播放失败: ' + error.message)
-          }
-          
-          // 播放失败时重置状态
-          isLoadingPreview.value = false
-          isPlaying.value = false
-        })
-      }
-    })
-    
-    previewAudioElement.addEventListener('ended', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      if (!previewAudioElement) return
-      console.log('预览音频播放结束')
-      stopPlayback()
-    })
-    
-    previewAudioElement.addEventListener('error', (e) => {
-      if (e.target.audioId !== currentAudioId) return  // 只处理当前音频元素的事件
-      if (!previewAudioElement) return
-      const error = e.target.error
-      console.error('预览音频播放错误:', e, error)
-      
-      let errorMessage = '音频播放失败'
-      if (error) {
-        switch (error.code) {
-          case 1: // MEDIA_ERR_ABORTED
-            errorMessage = '音频播放被中止'
-            break
-          case 2: // MEDIA_ERR_NETWORK
-            errorMessage = '网络错误导致音频播放失败'
-            break
-          case 3: // MEDIA_ERR_DECODE
-            errorMessage = '音频解码失败'
-            break
-          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-            errorMessage = '音频格式不支持或文件损坏'
-            break
-          default:
-            errorMessage = '音频播放失败: ' + (error.message || '未知错误')
-        }
-      }
-      
-      message.error(errorMessage)
-      isLoadingPreview.value = false
-      isPlaying.value = false
-      
-      // 清理音频元素但不删除文件（可能还需要重试）
-      if (previewAudioElement) {
-        previewAudioElement.src = ''
-        previewAudioElement.load()
-        previewAudioElement = null
-      }
-    })
-    
-    // 设置音频源并开始加载
-    previewAudioElement.src = audioUrl
-    previewAudioElement.load()
-    
-    // 设置超时保护，如果10秒内没有触发canplay事件，则重置状态
-    setTimeout(() => {
-      if (isLoadingPreview.value) {
-        console.warn('音频加载超时，重置加载状态')
-        isLoadingPreview.value = false
-        message.warning('音频加载超时，请重试')
-      }
-    }, 10000)
-    
-  } catch (error) {
-    console.error('启动播放失败:', error)
-    message.error('启动播放失败')
-    isLoadingPreview.value = false
-  }
-}
-
-function pausePlayback() {
-  isPlaying.value = false
-  if (previewAudioElement) {
-    previewAudioElement.pause()
-    // 不重置currentTime，保持当前播放位置
-  }
-  if (playInterval) {
-    clearInterval(playInterval)
-    playInterval = null
-  }
-}
-
-
-
-async function stopPlayback() {
-  isPlaying.value = false
-  currentTime.value = 0
-  
-  if (previewAudioElement) {
-    previewAudioElement.pause()
-    previewAudioElement.currentTime = 0
-    previewAudioElement.src = ''
-    previewAudioElement.load()
-    previewAudioElement = null
-  }
-  
-  if (playInterval) {
-    clearInterval(playInterval)
-    playInterval = null
-  }
-  
-  // 删除临时预览文件
-  if (currentPreviewFile) {
-    try {
-      // 添加preview_前缀，因为后端生成的文件名是preview_{uuid}.wav
-      const previewFileName = `preview_${currentPreviewFile}.wav`
-      const result = await deletePreviewFile(previewFileName)
-      if (result.success) {
-        console.log('预览文件已删除:', previewFileName)
-      } else {
-        console.warn('删除预览文件失败:', result.error)
-      }
-    } catch (error) {
-      console.error('删除预览文件出错:', error)
-    }
-  }
-  
-  currentPreviewFile = null
-}
-
-// 项目持久化
-function saveCurrentProjectToLocalStorage() {
-  if (currentProject.value.project.id) {
-    localStorage.setItem('sound-edit-current-project-id', currentProject.value.project.id)
-    localStorage.setItem('sound-edit-current-project-data', JSON.stringify(currentProject.value))
-    console.log('项目已自动保存到本地缓存:', currentProject.value.project.title)
-  }
-}
-
-// 自动保存项目到服务器（防抖处理）
-let autoSaveTimer = null
-function autoSaveProject() {
-  if (!currentProject.value.project.id) return
-  
-  // 清除之前的定时器
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  
-  // 设置延迟保存，避免频繁请求
-  autoSaveTimer = setTimeout(async () => {
-    try {
-      const result = await saveProject(currentProject.value.project.id, currentProject.value)
-      if (result.success) {
-        console.log('项目已自动保存到服务器:', currentProject.value.project.title)
-      }
-    } catch (error) {
-      console.warn('自动保存项目失败:', error)
-    }
-  }, 1000) // 1秒延迟
-}
-
-function clearProjectCache() {
-  localStorage.removeItem('sound-edit-current-project-id')
-  localStorage.removeItem('sound-edit-current-project-data')
-  message.info('本地项目缓存已清除')
-}
-
-async function loadProjectFromLocalStorage() {
-  try {
-    const savedProjectId = localStorage.getItem('sound-edit-current-project-id')
-    const savedProjectData = localStorage.getItem('sound-edit-current-project-data')
-    
-    if (savedProjectId && savedProjectData) {
-      // 尝试从服务器加载最新的项目数据
-      try {
-        const serverProject = await loadProject(savedProjectId)
-        if (serverProject.success) {
-          currentProject.value = serverProject.data
-          message.success('已恢复项目: ' + currentProject.value.project.title)
-          return
-        }
-      } catch (error) {
-        console.warn('从服务器加载项目失败，使用本地缓存:', error)
-      }
-      
-      // 如果服务器加载失败，使用本地缓存
-      const localProject = JSON.parse(savedProjectData)
-      currentProject.value = localProject
-      message.info('已恢复本地项目: ' + currentProject.value.project.title)
-    }
-  } catch (error) {
-    console.error('恢复项目失败:', error)
-  }
-}
-
-// 监听项目变化，自动保存到本地存储
-watch(currentProject, (newProject) => {
-  if (newProject.project.id) {
-    saveCurrentProjectToLocalStorage()
-  }
-}, { deep: true })
-
-// 全局键盘事件处理
+// 键盘事件处理
 function handleKeyDown(event) {
-  // 检查是否在输入框中
-  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-    return
-  }
-  
-  switch (event.key) {
-    case ' ':
-      // 空格键：播放/暂停
-      if (currentProject.value.project.id) {
-        togglePlay()
-        event.preventDefault()
-      }
-      break
-    case 'Delete':
-    case 'Backspace':
-      handleDeleteSelectedClips()
-      event.preventDefault()
-      break
-    case 'Escape':
-      clearAllSelections()
-      event.preventDefault()
-      break
-    case '=':
-    case '+':
-      // 加号键：放大
-      if (event.ctrlKey || event.metaKey) {
-        zoomIn()
-        event.preventDefault()
-      }
-      break
-    case '-':
-    case '_':
-      // 减号键：缩小
-      if (event.ctrlKey || event.metaKey) {
-        zoomOut()
-        event.preventDefault()
-      }
-      break
-    case '0':
-      // Ctrl+0：重置缩放
-      if (event.ctrlKey || event.metaKey) {
-        resetZoom()
-        event.preventDefault()
-      }
-      break
+  if (event.code === 'Space' && !event.target.matches('input, textarea')) {
+    event.preventDefault()
+    togglePlay()
   }
 }
 
-function handleGlobalClick(event) {
-  // 如果点击的不是音频片段相关元素和项目信息面板，清除所有选中状态
-  if (!event.target.closest('.audio-clip') && 
-      !event.target.closest('.ant-modal') && 
-      !event.target.closest('.project-panel') &&
-      !event.target.closest('.clip-details')) {
-    clearAllSelections()
-  }
-}
-
-function handleDeleteSelectedClips() {
-  const selectedClips = []
-  
-  // 收集所有选中的音频片段
-  currentProject.value.tracks.forEach(track => {
-    track.clips.forEach(clip => {
-      if (clip.selected) {
-        selectedClips.push({ trackId: track.id, clipId: clip.id, clipName: clip.name })
-      }
-    })
-  })
-  
-  if (selectedClips.length === 0) {
-    message.info('请先选择要删除的音频片段')
-    return
-  }
-  
-  // 显示确认对话框
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除 ${selectedClips.length} 个音频片段吗？`,
-    okText: '删除',
-    okType: 'danger',
-    cancelText: '取消',
-    onOk() {
-      selectedClips.forEach(({ trackId, clipId }) => {
-        deleteClip(trackId, clipId)
-      })
-      message.success(`已删除 ${selectedClips.length} 个音频片段`)
-    }
-  })
-}
-
-function clearAllSelections() {
-  currentProject.value.tracks.forEach(track => {
-    track.clips.forEach(clip => {
-      if (clip.selected) {
-        clip.selected = false
-      }
-    })
-  })
-}
-
-function handleExclusiveSelect(trackId, clipId) {
-  // 清除所有音频片段的选中状态
-  currentProject.value.tracks.forEach(track => {
-    track.clips.forEach(clip => {
-      clip.selected = false
-    })
-  })
-  
-  // 选中指定的音频片段
-  const track = currentProject.value.tracks.find(t => t.id === trackId)
-  if (track) {
-    const clip = track.clips.find(c => c.id === clipId)
-    if (clip) {
-      clip.selected = true
-    }
-  }
-}
-
-// 更新选中的音频片段
-function updateSelectedClip(updates) {
-  if (!selectedClip.value) return
-  
-  // 找到对应的音轨和片段并更新
-  for (const track of currentProject.value.tracks) {
-    for (const clip of track.clips) {
-      if (clip.selected) {
-        Object.assign(clip, updates)
-        updateProjectDuration()
-        // 自动保存项目
-        autoSaveProject()
-        break
-      }
-    }
-  }
-}
-
-// 清除选中状态
-function clearSelectedClip() {
-  currentProject.value.tracks.forEach(track => {
-    track.clips.forEach(clip => {
-      clip.selected = false
-    })
-  })
-}
-
-// 生命周期
-onMounted(async () => {
-  // 恢复之前的项目
-  await loadProjectFromLocalStorage()
-  // 加载音频文件列表
-  await loadAudioFiles()
-  
-  // 添加全局键盘事件监听
+// ========== 生命周期 ==========
+onMounted(() => {
+  refreshAudioFiles()
   document.addEventListener('keydown', handleKeyDown)
-  // 添加全局点击事件监听
-  document.addEventListener('click', handleGlobalClick)
 })
 
 onUnmounted(() => {
-  // 清理播放相关资源
-  if (playInterval) {
-    clearInterval(playInterval)
-  }
-  if (previewAudioElement) {
-    previewAudioElement.pause()
-    previewAudioElement = null
-  }
-  if (audioFileElement) {
-    audioFileElement.pause()
-    audioFileElement = null
-  }
-  
-  // 移除全局键盘事件监听
+  stopAudioPlayback()
+  stopPreviewAudio()
   document.removeEventListener('keydown', handleKeyDown)
-  // 移除全局点击事件监听  
-  document.removeEventListener('click', handleGlobalClick)
 })
-
-// 添加音频文件到项目
-function handleAddAudioToProject(audioFile) {
-  // 找到合适的音轨
-  let targetTrack = null
-  
-  // 根据文件类型选择默认音轨
-  if (audioFile.original_name) {
-    const name = audioFile.original_name.toLowerCase()
-    if (name.includes('dialogue') || name.includes('voice') || name.includes('speech')) {
-      targetTrack = currentProject.value.tracks.find(t => t.type === 'dialogue')
-    } else if (name.includes('background') || name.includes('music') || name.includes('bgm')) {
-      targetTrack = currentProject.value.tracks.find(t => t.type === 'background')
-    } else if (name.includes('environment') || name.includes('effect') || name.includes('ambient')) {
-      targetTrack = currentProject.value.tracks.find(t => t.type === 'environment')
-    }
-  }
-  
-  // 如果没有找到合适的音轨，使用第一个音轨
-  if (!targetTrack && currentProject.value.tracks.length > 0) {
-    targetTrack = currentProject.value.tracks[0]
-  }
-  
-  if (targetTrack) {
-    const fileName = audioFile.original_name || audioFile.filename || '音频片段'
-    const clipData = {
-      name: fileName.replace(/\.[^/.]+$/, ''),
-      filePath: audioFile.file_id,
-      startTime: findNextAvailableTimeInTrack(targetTrack),
-      duration: audioFile.duration || 3.0
-    }
-    
-    addClip(targetTrack.id, clipData)
-    showAudioManager.value = false
-    message.success(`已添加到 ${getTrackTypeLabel(targetTrack.type)} 音轨`)
-  } else {
-    message.warning('请先创建音轨')
-  }
-}
-
-function findNextAvailableTimeInTrack(track) {
-  if (track.clips.length === 0) {
-    return 0
-  }
-  
-  // 找到最后一个片段的结束时间
-  const lastClip = track.clips.reduce((latest, clip) => {
-    const endTime = clip.startTime + clip.duration
-    return endTime > latest ? endTime : latest
-  }, 0)
-  
-  return lastClip + 0.5 // 添加0.5秒间隙
-}
-
-function getTrackTypeLabel(type) {
-  const labels = {
-    dialogue: '角色对话',
-    environment: '环境音效',
-    background: '背景音乐'
-  }
-  return labels[type] || type
-}
-
-// 音频文件管理方法
-async function loadAudioFiles() {
-  try {
-    loadingAudioFiles.value = true
-    const result = await listAudioFiles()
-    if (result.success) {
-      // 直接使用数据库返回的数据，包含正确的分类信息
-      audioFiles.value = result.data || []
-    }
-  } catch (error) {
-    console.error('加载音频文件失败:', error)
-    message.error('加载音频文件失败')
-  } finally {
-    loadingAudioFiles.value = false
-  }
-}
-
-async function handleBeforeUpload(file, category = 'dialogue') {
-  try {
-    // 获取当前项目ID（如果有的话）
-    const projectId = currentProject.value?.project?.id || null
-    
-    const result = await uploadMultipleAudioFiles([file], category, projectId)
-    if (result.success && result.data[0].upload_success) {
-      message.success(`${file.name} 上传到${getCategoryLabel(category)}成功`)
-      
-      // 重新加载文件列表（分类信息已经保存在数据库中）
-      await loadAudioFiles()
-    } else {
-      message.error(`${file.name} 上传失败`)
-    }
-  } catch (error) {
-    console.error('上传失败:', error)
-    message.error(`${file.name} 上传失败`)
-  }
-  return false // 阻止默认上传行为
-}
-
-// 获取分类标签
-function getCategoryLabel(category) {
-  const labels = {
-    dialogue: '对话音',
-    environment: '环境音',
-    theme: '主题音'
-  }
-  return labels[category] || '对话音'
-}
-
-function handleSearch(value) {
-  searchKeyword.value = value
-}
-
-function selectAudioFile(file) {
-  selectedAudioFile.value = file
-}
-
-// 删除音频文件
-async function handleDeleteAudioFile(file) {
-  try {
-    // 停止播放（如果正在播放这个文件）
-    if (playingFileId.value === file.file_id) {
-      if (audioFileElement) {
-        audioFileElement.pause()
-        audioFileElement = null
-      }
-      playingFileId.value = null
-    }
-    
-    const result = await deleteAudioFile(file.file_id)
-    if (result.success) {
-      message.success('音频文件删除成功')
-      await loadAudioFiles() // 重新加载文件列表
-    } else {
-      message.error('删除失败: ' + (result.message || '未知错误'))
-    }
-  } catch (error) {
-    console.error('删除音频文件失败:', error)
-    message.error('删除音频文件失败')
-  }
-}
-
-function playAudioFile(file) {
-  if (playingFileId.value === file.file_id) {
-    // 停止播放
-    if (audioFileElement) {
-      audioFileElement.pause()
-      audioFileElement = null
-    }
-    playingFileId.value = null
-  } else {
-    // 停止其他正在播放的音频文件
-    if (audioFileElement) {
-      audioFileElement.pause()
-      audioFileElement = null
-    }
-    
-    // 开始播放新文件
-    try {
-      const audioUrl = `http://localhost:8000/api/v1/audio-files/download/${file.file_id}`
-      console.log('播放音频文件:', audioUrl)
-      
-      audioFileElement = new Audio(audioUrl)
-      audioFileElement.crossOrigin = 'anonymous'
-      
-      audioFileElement.onloadstart = () => {
-        console.log('开始加载音频文件')
-      }
-      
-      audioFileElement.oncanplay = () => {
-        console.log('音频可以播放')
-        audioFileElement.play().then(() => {
-          console.log('音频播放开始')
-          playingFileId.value = file.file_id
-        }).catch(error => {
-          console.error('播放失败:', error)
-          message.error('音频播放失败')
-          playingFileId.value = null
-          audioFileElement = null
-        })
-      }
-      
-      audioFileElement.onended = () => {
-        console.log('音频播放结束')
-        playingFileId.value = null
-        audioFileElement = null
-      }
-      
-      audioFileElement.onerror = (error) => {
-        console.error('音频加载错误:', error)
-        message.error('音频文件加载失败')
-        playingFileId.value = null
-        audioFileElement = null
-      }
-      
-      // 开始加载
-      audioFileElement.load()
-      
-    } catch (error) {
-      console.error('创建音频元素失败:', error)
-      message.error('音频播放失败')
-      playingFileId.value = null
-      audioFileElement = null
-    }
-  }
-}
-
-function isPlayingFile(fileId) {
-  return playingFileId.value === fileId
-}
-
-function formatDuration(seconds) {
-  if (!seconds) return '00:00'
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = Math.floor(seconds % 60)
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-}
-
-function refreshAudioFiles() {
-  loadAudioFiles()
-}
-
-// 拖拽相关方法
-function handleDragStart(file, event) {
-  draggedAudioFile.value = file
-  isDragging.value = true
-  
-  // 设置拖拽数据
-  event.dataTransfer.setData('application/json', JSON.stringify({
-    type: 'audio-file',
-    file: file
-  }))
-  
-  // 设置拖拽效果
-  event.dataTransfer.effectAllowed = 'copy'
-  
-  // 添加拖拽样式
-  event.target.classList.add('dragging')
-}
-
-function handleDragEnd(event) {
-  isDragging.value = false
-  draggedAudioFile.value = null
-  
-  // 移除拖拽样式
-  event.target.classList.remove('dragging')
-}
 </script>
 
 <style scoped>
 .multitrack-editor {
-  background: #1a1a1a;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  background: #1a1a1a;
   color: #fff;
+  overflow: hidden;
 }
 
 .editor-container {
-  flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: #1a1a1a;
 }
 
-/* 上半部分：三栏布局 */
 .top-section {
-  height: calc(50% - 8px);
   display: flex;
-  gap: 16px;
-  padding: 16px;
-}
-
-.resource-panel, .preview-panel, .project-panel {
-  background: #2a2a2a;
-  display: flex;
-  flex-direction: column;
-  border-radius: 8px;
-  border: 1px solid #333;
-}
-
-.resource-panel {
-  flex: 3;
-}
-
-.preview-panel {
-  flex: 4;
-}
-
-.project-panel {
-  flex: 3;
-}
-
-/* 面板头部 */
-.panel-header {
-  padding: 12px 16px;
-  background: #333;
-  border-bottom: 1px solid #444;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-}
-
-.panel-header h4 {
-  margin: 0;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* 面板内容 */
-.panel-content {
-  flex: 1;
-  padding: 12px;
-  overflow: auto;
-}
-
-/* 资源库样式 */
-.resource-tabs :deep(.ant-tabs-nav) {
-  margin: 0;
-}
-
-.resource-tabs :deep(.ant-tabs-tab) {
-  color: #ccc;
-}
-
-.resource-tabs :deep(.ant-tabs-tab-active) {
-  color: #1890ff;
-}
-
-.resource-tabs :deep(.ant-tabs-content-holder) {
-  padding-top: 8px;
-}
-
-.audio-list {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.toolbar-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.toolbar-left {
-  flex: 1;
-  min-width: 120px;
-  max-width: 180px;
-}
-
-.toolbar-left .ant-input-search {
-  width: 100%;
-}
-
-.toolbar-right {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.audio-files {
-  flex: 1;
-  overflow: auto;
-}
-
-.empty-audio {
-  text-align: center;
-  padding: 24px 12px;
-  color: #666;
-}
-
-.empty-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
-}
-
-.empty-text {
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.empty-desc {
-  font-size: 11px;
-  color: #999;
-}
-
-.audio-item {
-  display: flex;
-  align-items: center;
-  padding: 6px 10px;
-  background: #3a3a3a;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 6px;
-  border: 1px solid transparent;
-}
-
-.audio-item:hover {
-  background: #404040;
-  border-color: #555;
-}
-
-.audio-item:last-child {
-  margin-bottom: 0;
-}
-
-.audio-item.dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
-  border-color: #52c41a;
-  background: #1f2f1f;
-}
-
-.audio-item:hover {
-  background: #404040;
-  border-color: #555;
-}
-
-.audio-item:active {
-  transform: scale(0.98);
-}
-
-.audio-preview {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #555;
-  border-radius: 4px;
-  margin-right: 10px;
-}
-
-.audio-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.audio-name {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.audio-meta {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.audio-duration, .audio-format {
-  font-size: 10px;
-  color: #999;
-}
-
-.audio-format {
-  background: #555;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.audio-actions {
-  margin-left: 8px;
-}
-
-.audio-actions .ant-btn-text.ant-btn-dangerous {
-  color: #ff7875;
-  opacity: 0.7;
-  transition: all 0.2s;
-}
-
-.audio-actions .ant-btn-text.ant-btn-dangerous:hover {
-  opacity: 1;
-  color: #ff4d4f;
-  background: rgba(255, 77, 79, 0.1);
-}
-
-.effects-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.effect-item {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  background: #3a3a3a;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  padding: 12px;
+  height: 300px;
+  min-height: 300px;
+  background: #222;
 }
 
-.effect-item:hover {
-  background: #404040;
-}
-
-.audio-preview, .effect-icon {
-  font-size: 24px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #555;
-  border-radius: 4px;
-}
-
-.audio-info {
-  flex: 1;
-}
-
-.audio-name, .effect-name {
-  color: #fff;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.audio-duration {
-  color: #999;
-  font-size: 12px;
-}
-
-.audio-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.audio-format {
-  background: #555;
-  color: #ccc;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 500;
-}
-
-/* 预览区域样式 */
-.preview-area {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.waveform-display {
-  flex: 1;
-  background: #1e1e1e;
-  border-radius: 6px;
-  margin-bottom: 16px;
-}
-
-.waveform-container {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.waveform-placeholder {
-  text-align: center;
-  color: #666;
-}
-
-.waveform-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.waveform-text {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-.waveform-info {
-  font-size: 14px;
-  color: #999;
-}
-
-.preview-controls {
-  display: flex;
-  align-items: center;
-}
-
-.preview-controls :deep(.ant-slider) {
-  flex: 1;
-}
-
-.preview-controls :deep(.ant-slider-rail) {
-  background: #444;
-}
-
-.preview-controls :deep(.ant-slider-track) {
-  background: #1890ff;
-}
-
-.preview-controls :deep(.ant-slider-handle) {
-  border-color: #1890ff;
-}
-
-/* 项目信息样式 */
-.project-details {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.project-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.project-field label {
-  color: #999;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.project-field span {
-  color: #fff;
-  font-size: 14px;
-}
-
-.project-actions {
-  margin-top: 16px;
-}
-
-.project-empty {
-  text-align: center;
-  color: #666;
-  padding: 32px 0;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-text {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-.empty-desc {
-  font-size: 14px;
-  color: #999;
-}
-
-/* 下半部分：音轨编辑器 */
 .bottom-section {
-  height: calc(50% - 8px);
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  padding-top: 0;
-}
-
-.timeline-container {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #1e1e1e;
-  border-radius: 8px;
-  border: 1px solid #333;
+  padding: 0 12px 12px;
   overflow: hidden;
-}
-
-
-
-.ruler-left-space {
-  width: 200px;
-  background: #333;
-  border-right: 1px solid #444;
-}
-
-.time-markers {
-  position: relative;
-  height: 100%;
-  flex: 1;
-}
-
-.time-marker {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  border-left: 1px solid #444;
-  padding-left: 4px;
-  display: flex;
-  align-items: center;
-}
-
-.time-label {
-  font-size: 12px;
-  color: #999;
-}
-
-.playhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #ff4d4f;
-  z-index: 10;
-  pointer-events: none;
-  transition: left 0.1s ease;
-}
-
-.playhead::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  width: 14px;
-  height: 14px;
-  background: #ff4d4f;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.tracks-container {
-  flex: 1;
-  min-height: 200px;
-  overflow: auto;
 }
 
 .empty-state {
-  flex: 1;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.empty-state :deep(.ant-empty-description) {
-  color: #666;
-}
-
-/* 自定义按钮样式 */
-:deep(.ant-btn-sm) {
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-:deep(.ant-btn-primary) {
-  background: #1890ff;
-  border-color: #1890ff;
-}
-
-:deep(.ant-btn-primary:hover) {
-  background: #40a9ff;
-  border-color: #40a9ff;
-}
-
-/* 自定义模态框样式 */
-:deep(.ant-modal-content) {
-  background: #2a2a2a;
-  color: #fff;
-}
-
-:deep(.ant-modal-header) {
-  background: #333;
-  border-bottom: 1px solid #444;
-}
-
-:deep(.ant-modal-title) {
-  color: #fff;
-}
-
-:deep(.ant-modal-close-x) {
-  color: #999;
-}
-
-:deep(.ant-modal-close-x:hover) {
-  color: #fff;
-}
-
-.export-progress {
-  text-align: center;
-  padding: 20px;
-}
-
-/* 时间轴工具栏 */
-.timeline-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #2a2a2a;
-  border-bottom: 1px solid #333;
-  padding: 8px 16px;
-  height: 50px;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-title {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-}
-
-/* 时间轴主体区域 */
-.timeline-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.timeline-ruler {
-  height: 40px;
-  display: flex;
-  background: #2a2a2a;
-  border-bottom: 1px solid #333;
-}
-
-.ruler-scroll-container {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.ruler-scroll-container::-webkit-scrollbar {
-  display: none; /* 隐藏滚动条，因为主滚动条在下面 */
-}
-
-.tracks-scroll-container {
-  flex: 1;
-  overflow: auto;
   background: #1e1e1e;
+  border-radius: 8px;
+  border: 1px solid #333;
 }
 
-.tracks-wrapper {
-  display: flex;
-  min-height: 100%;
-}
-
-.tracks-controls {
-  width: 200px;
-  background: #333;
-  border-right: 1px solid #444;
-  flex-shrink: 0;
-}
-
-.tracks-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.track-control {
-  height: 60px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #444;
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.track-color-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-}
-
-.track-info {
-  flex: 1;
-}
-
-.track-name {
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.track-type {
+.empty-state :deep(.ant-empty) {
   color: #999;
-  font-size: 11px;
-  text-transform: uppercase;
 }
-
-.zoom-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.zoom-slider-container {
-  display: flex;
-  align-items: center;
-}
-
-.zoom-display {
-  display: flex;
-  align-items: center;
-}
-
-.zoom-percentage {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 50px;
-  text-align: center;
-}
-
-.zoom-label,
-.view-range {
-  color: #ccc;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.view-range {
-  background: #2a2a2a;
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid #444;
-}
-</style> 
+</style>
